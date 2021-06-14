@@ -1,0 +1,13 @@
+[package]
+name = "rustlib"
+version = "0.1.0"
+edition = "2018"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+roxido = { path="roxido" }
+munkres = "0.5.2"
+ndarray = "0.15.3"
