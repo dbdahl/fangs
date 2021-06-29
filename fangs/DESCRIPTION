@@ -1,6 +1,6 @@
 Package: fangs
 Title: Feature Allocation Neighborhood Search Algorithm
-Version: 0.0.1
+Version: 0.0.2
 Authors@R: c(person(given="David B.",family="Dahl",role=c("aut","cre"),email="dahl@stat.byu.edu",comment=c(ORCID="0000-0002-8173-1547")), person(given="Devin J.",family="Johnson",role=c("aut"),email="devin.j.johnson7@gmail.com",comment=c(ORCID="0000-0003-2619-6649")))
 Description: A neighborhood-based, gready search algorithm is performed to estimate a feature allocation by minimizing the expected loss based on posterior samples from the feature allocation distribution.
 License: MIT + file LICENSE | Apache License 2.0

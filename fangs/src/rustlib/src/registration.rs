@@ -14,6 +14,13 @@ mod registration;
 use roxido::*;
 
 #[no_mangle]
+extern "C" fn compute_expected_loss(Z: SEXP, Zs: SEXP) -> SEXP {
+    panic_to_error!({
+        unsafe { rbindings::R_NilValue }
+    })
+}
+
+#[no_mangle]
 extern "C" fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
     panic_to_error!({
         unsafe { rbindings::R_NilValue }
@@ -25,8 +32,14 @@ use roxido::*;
 
 #[no_mangle]
 extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
-    let mut call_routines = Vec::with_capacity(1);
-    let mut names = Vec::with_capacity(1);
+    let mut call_routines = Vec::with_capacity(2);
+    let mut names = Vec::with_capacity(2);
+    names.push(std::ffi::CString::new(".compute_expected_loss").unwrap());
+    call_routines.push(rbindings::R_CallMethodDef {
+        name: names.last().unwrap().as_ptr(),
+        fun: unsafe { std::mem::transmute(crate::compute_expected_loss as *const u8) },
+        numArgs: 2,
+    });
     names.push(std::ffi::CString::new(".compute_loss").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {
         name: names.last().unwrap().as_ptr(),
