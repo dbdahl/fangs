@@ -5,8 +5,9 @@ use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::Zip;
 use num_traits::identities::Zero;
+use rand::RngCore;
 use rand::SeedableRng;
-use rand::{Rng, RngCore};
+use rand_distr::{Binomial, Distribution};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use roxido::*;
@@ -14,49 +15,68 @@ use roxido::*;
 #[no_mangle]
 extern "C" fn fangs(
     samples: SEXP,
+    n_samples: SEXP,
     n_best: SEXP,
-    _k: SEXP,
-    _prob1: SEXP,
+    k: SEXP,
+    prob_flip: SEXP,
     n_iterations: SEXP,
     n_cores: SEXP,
 ) -> SEXP {
     panic_to_error!({
+        let mut timer = DbdTimer::new();
+        let n_samples_in_all = samples.length_usize();
+        if n_samples_in_all < 1 {
+            return r::error("Number of samples must be at least one.");
+        }
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
-        let n_best = n_best.as_integer() as usize;
-        let n_iterations = n_iterations.as_integer() as usize;
+        let n_samples = (n_samples.as_integer().max(1) as usize).min(n_samples_in_all);
+        let n_best = (n_best.as_integer().max(1) as usize).min(n_samples);
+        let k = k.as_integer().max(1) as u64;
+        let n_iterations = n_iterations.as_integer().max(0) as usize;
         let n_cores = n_cores.as_integer().max(0) as usize;
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(n_cores)
             .build()
             .unwrap();
-        let n_samples = samples.length_usize();
-        if n_samples < 1 {
-            return r::error("Number of samples must be at least one.");
-        }
         let o = samples.get_list_element(0);
         if !o.is_double() || !o.is_matrix() {
             return r::error("All elements of 'samples' must be integer matrices.");
         }
         let n_items = o.nrow_usize();
         let mut views = Vec::with_capacity(n_samples);
-        // let mut mean_density = 0.0;
+        let mut mean_density = 0.0;
         let mut max_features = 0;
-        for i in 0..n_samples {
+        let dynamic_prob_flip = prob_flip.is_nil();
+        timer.stamp();
+        for i in 0..n_samples_in_all {
             let o = samples.get_list_element(i as isize);
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
                 return r::error("All elements of 'samples' must be double matrices with a consistent number of rows.");
             }
             let view = view_double(o);
-            // mean_density += density(view);
+            mean_density += if dynamic_prob_flip {
+                density(view)
+            } else {
+                0.0
+            };
             max_features += max_features.max(view.ncols());
             views.push(view)
         }
-        // mean_density /= n_samples as f64;
+        let prob_flip = if dynamic_prob_flip {
+            mean_density /= n_samples_in_all as f64;
+            0.5 - (mean_density - 0.5).abs()
+        } else {
+            prob_flip.as_double().min(1.0).max(0.0)
+        };
+        let selected: Vec<_> = rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
+            .into_iter()
+            .map(|x| x as usize)
+            .collect();
+        timer.stamp();
         let mut losses: Vec<_> = pool.install(|| {
-            views
+            selected
                 .par_iter()
-                .map(|z| compute_expected_loss_from_views(*z, &views))
-                .enumerate()
+                .map(|i| (*i, compute_expected_loss_from_views(views[*i], &views)))
                 .collect()
         });
         losses.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
@@ -70,26 +90,44 @@ extern "C" fn fangs(
                 (x.0, x.1, new_rng)
             })
             .collect();
+        timer.stamp();
         let mut candidates: Vec<_> = best_losses_with_rngs
             .into_par_iter()
             .map(|(index_into_views, mut current_loss, mut rng)| {
                 let mut current_z = views[index_into_views].to_owned();
                 let n_features = current_z.ncols();
+                let binomial = Binomial::new(k, prob_flip).unwrap();
                 let total_length = n_items * n_features;
                 for _ in 0..n_iterations {
-                    let index = rng.gen_range(0..total_length);
-                    let index = [index / n_features, index % n_features];
-                    current_z[index] = if current_z[index] == 0.0 { 1.0 } else { 0.0 };
+                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                        [index / ncols, index % ncols]
+                    }
+                    let n_to_flip = 1 + binomial.sample(&mut rng);
+                    let mut restoration_table = Vec::with_capacity(n_to_flip as usize);
+                    for index in rand::seq::index::sample(
+                        &mut rng,
+                        total_length,
+                        (n_to_flip as usize).min(total_length),
+                    ) {
+                        let index = index_1d_to_2d(index, n_features);
+                        let current_bit = current_z[index];
+                        restoration_table.push((index, current_bit));
+                        current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
+                    }
                     let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
                     if new_loss < current_loss {
+                        println!("Hit {}", n_to_flip);
                         current_loss = new_loss;
                     } else {
-                        current_z[index] = if current_z[index] == 0.0 { 1.0 } else { 0.0 };
+                        for (index, value) in restoration_table {
+                            current_z[index] = value;
+                        }
                     }
                 }
                 (current_z, current_loss)
             })
             .collect();
+        timer.stamp();
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         let (best_z, best_loss) = candidates.swap_remove(0);
         let columns_to_keep: Vec<usize> = best_z
@@ -115,6 +153,7 @@ extern "C" fn fangs(
             ("loss", r::double_scalar(best_loss).protect()),
         ]);
         r::unprotect(2);
+        timer.stamp();
         list
     })
 }
@@ -172,11 +211,9 @@ fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item 
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-/*
-fn density(y: ArrayView2<i32>) -> f64 {
-    (y.iter().filter(|x| **x != 0).count() as f64) / (y.len() as f64)
+fn density(y: ArrayView2<f64>) -> f64 {
+    (y.iter().filter(|x| **x != 0.0).count() as f64) / (y.len() as f64)
 }
-*/
 
 fn compute_expected_loss_from_views(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> f64 {
     let sum = samples
@@ -237,22 +274,23 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
 #[allow(dead_code)]
 struct DbdTimer {
     start: std::time::SystemTime,
+    latest: std::time::SystemTime,
 }
 
 #[allow(dead_code)]
 impl DbdTimer {
     fn new() -> Self {
+        let start = std::time::SystemTime::now();
         DbdTimer {
-            start: std::time::SystemTime::now(),
+            start,
+            latest: start,
         }
     }
-    fn stamp(&self) {
-        println!(
-            "{}",
-            std::time::SystemTime::now()
-                .duration_since(self.start)
-                .expect("Time went backwards")
-                .as_micros()
-        );
+    fn stamp(&mut self) {
+        let now = std::time::SystemTime::now();
+        let lapse = now.duration_since(self.latest).expect("Time went backwards").as_micros();
+        let total = now.duration_since(self.start).expect("Time went backwards").as_micros();
+        self.latest = now;
+        println!("{} {}", lapse, total);
     }
 }

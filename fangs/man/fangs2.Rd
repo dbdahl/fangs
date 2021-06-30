@@ -4,7 +4,15 @@
 \alias{fangs2}
 \title{Feature Allocation Neighborhood Greedy Search}
 \usage{
-fangs2(Zs, nBest = 1, k = 1, prob1 = -1, maxIter, nCores = 0)
+fangs2(
+  Zs,
+  nSamples = length(Zs),
+  nBest = 1,
+  k = 0,
+  probFlip = 0.5,
+  maxIter = 100,
+  nCores = 0
+)
 }
 \arguments{
 \item{Zs}{something}
@@ -13,7 +21,7 @@ fangs2(Zs, nBest = 1, k = 1, prob1 = -1, maxIter, nCores = 0)
 
 \item{k}{something}
 
-\item{prob1}{something}
+\item{probFlip}{something}
 
 \item{maxIter}{something}
 
@@ -29,7 +37,7 @@ A list of the following elements:
 \item loss - A vector of numbers.
 \item best - A vector of numbers.
 \item k - A vector of numbers.
-\item prob1 - A vector of numbers.
+\item probFlip - A vector of numbers.
 \item iter - A vector of numbers.
 }
 }

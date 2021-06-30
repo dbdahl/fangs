@@ -6,7 +6,7 @@
 #' @param Zs something
 #' @param nBest something
 #' @param k something
-#' @param prob1 something
+#' @param probFlip something
 #' @param maxIter something
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous runs at any given time. A value of zero indicates to use all
@@ -19,7 +19,7 @@
 #'   \item loss - A vector of numbers.
 #'   \item best - A vector of numbers.
 #'   \item k - A vector of numbers.
-#'   \item prob1 - A vector of numbers.
+#'   \item probFlip - A vector of numbers.
 #'   \item iter - A vector of numbers.
 #' }
 #'
@@ -27,9 +27,9 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nBest=1, k=1, prob1=-1, maxIter, nCores=0) {
+fangs2 <- function(Zs, nSamples=length(Zs), nBest=1, k=0, probFlip=0.5, maxIter=100, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nBest, k, prob1, maxIter, nCores)
-  c(result, nBest=nBest, k=k, prob1=prob1, totalIter=maxIter)
+  result <- .Kall(.fangs, Zs, nSamples, nBest, k, probFlip, maxIter, nCores)
+  c(result, nBest=nBest, k=k, probFlip=probFlip, totalIter=maxIter)
 }
 
