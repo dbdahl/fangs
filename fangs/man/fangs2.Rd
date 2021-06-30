@@ -9,7 +9,7 @@ fangs2(
   nSamples = length(Zs),
   nBest = 1,
   k = 0,
-  probFlip = 0.5,
+  probFlip = NULL,
   maxIter = 100,
   nCores = 0
 )

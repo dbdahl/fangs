@@ -27,7 +27,7 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nSamples=length(Zs), nBest=1, k=0, probFlip=0.5, maxIter=100, nCores=0) {
+fangs2 <- function(Zs, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, maxIter=100, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
   result <- .Kall(.fangs, Zs, nSamples, nBest, k, probFlip, maxIter, nCores)
   c(result, nBest=nBest, k=k, probFlip=probFlip, totalIter=maxIter)

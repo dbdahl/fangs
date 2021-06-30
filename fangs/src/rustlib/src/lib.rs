@@ -47,7 +47,7 @@ extern "C" fn fangs(
         let mut mean_density = 0.0;
         let mut max_features = 0;
         let dynamic_prob_flip = prob_flip.is_nil();
-        timer.stamp();
+        timer.stamp("Parsed parameters.");
         for i in 0..n_samples_in_all {
             let o = samples.get_list_element(i as isize);
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
@@ -68,11 +68,11 @@ extern "C" fn fangs(
         } else {
             prob_flip.as_double().min(1.0).max(0.0)
         };
+        timer.stamp("Made views.");
         let selected: Vec<_> = rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
             .into_iter()
             .map(|x| x as usize)
             .collect();
-        timer.stamp();
         let mut losses: Vec<_> = pool.install(|| {
             selected
                 .par_iter()
@@ -83,53 +83,75 @@ extern "C" fn fangs(
         let best_losses_with_rngs: Vec<_> = losses
             .iter()
             .take(n_best)
+            .enumerate()
             .map(|x| {
                 let mut seed = [0_u8; 16];
                 rng.fill_bytes(&mut seed);
                 let new_rng = Pcg64Mcg::from_seed(seed);
-                (x.0, x.1, new_rng)
+                (x.0, (x.1).0, (x.1).1, new_rng)
             })
             .collect();
-        timer.stamp();
+        timer.stamp("Computed expected loss for selected.");
         let mut candidates: Vec<_> = best_losses_with_rngs
             .into_par_iter()
-            .map(|(index_into_views, mut current_loss, mut rng)| {
-                let mut current_z = views[index_into_views].to_owned();
-                let n_features = current_z.ncols();
-                let binomial = Binomial::new(k, prob_flip).unwrap();
-                let total_length = n_items * n_features;
-                for _ in 0..n_iterations {
-                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                        [index / ncols, index % ncols]
-                    }
-                    let n_to_flip = 1 + binomial.sample(&mut rng);
-                    let mut restoration_table = Vec::with_capacity(n_to_flip as usize);
-                    for index in rand::seq::index::sample(
-                        &mut rng,
-                        total_length,
-                        (n_to_flip as usize).min(total_length),
-                    ) {
-                        let index = index_1d_to_2d(index, n_features);
-                        let current_bit = current_z[index];
-                        restoration_table.push((index, current_bit));
-                        current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
-                    }
-                    let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
-                    if new_loss < current_loss {
-                        println!("Hit {}", n_to_flip);
-                        current_loss = new_loss;
-                    } else {
-                        for (index, value) in restoration_table {
-                            current_z[index] = value;
+            .map(
+                |(index_into_candidates, index_into_views, mut current_loss, mut rng)| {
+                    let mut current_z = views[index_into_views].to_owned();
+                    let n_features = current_z.ncols();
+                    let binomial = Binomial::new(k, prob_flip).unwrap();
+                    let total_length = n_items * n_features;
+                    let mut n_accepts = 0;
+                    for iteration_counter in 0..n_iterations {
+                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                            [index / ncols, index % ncols]
+                        }
+                        let n_to_flip = 1 + binomial.sample(&mut rng);
+                        let mut restoration_table = Vec::with_capacity(n_to_flip as usize);
+                        for index in rand::seq::index::sample(
+                            &mut rng,
+                            total_length,
+                            (n_to_flip as usize).min(total_length),
+                        ) {
+                            let index = index_1d_to_2d(index, n_features);
+                            let current_bit = current_z[index];
+                            restoration_table.push((index, current_bit));
+                            current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
+                        }
+                        let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
+                        if new_loss < current_loss {
+                            if timer.echo {
+                                println!(
+                                    "Found improvement for candidate {} by flipping {} bit{} at iteration {}.",
+                                    index_into_candidates,
+                                    n_to_flip,
+                                    if n_to_flip == 1 { "" } else { "s" },
+                                iteration_counter
+                                );
+                            };
+                            n_accepts += 1;
+                            current_loss = new_loss;
+                        } else {
+                            for (index, value) in restoration_table {
+                                current_z[index] = value;
+                            }
                         }
                     }
-                }
-                (current_z, current_loss)
-            })
+                    (current_z, current_loss, index_into_candidates, n_accepts)
+                },
+            )
             .collect();
-        timer.stamp();
+        timer.stamp("Sweetened bests.");
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let (best_z, best_loss) = candidates.swap_remove(0);
+        let (best_z, best_loss, index_into_candidates, n_accepts) = candidates.swap_remove(0);
+        if timer.echo {
+            r::print(
+                format!(
+                    "Best result came from candidate {} after {} accepted proposals.\n",
+                    index_into_candidates, n_accepts
+                )
+                .as_str(),
+            )
+        }
         let columns_to_keep: Vec<usize> = best_z
             .axis_iter(Axis(1))
             .enumerate()
@@ -151,9 +173,10 @@ extern "C" fn fangs(
         let list = r::list_vector_with_names_and_values(&[
             ("estimate", estimate),
             ("loss", r::double_scalar(best_loss).protect()),
+            ("seconds", r::double_scalar(timer.total_as_secs_f64())),
         ]);
         r::unprotect(2);
-        timer.stamp();
+        timer.stamp("Finalized results.");
         list
     })
 }
@@ -275,22 +298,44 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
 struct DbdTimer {
     start: std::time::SystemTime,
     latest: std::time::SystemTime,
+    echo: bool,
 }
 
 #[allow(dead_code)]
 impl DbdTimer {
     fn new() -> Self {
         let start = std::time::SystemTime::now();
+        let echo = match std::env::var("DBD_ECHO") {
+            Ok(x) if x == "TRUE" || x == "true" => true,
+            _ => false,
+        };
         DbdTimer {
             start,
             latest: start,
+            echo,
         }
     }
-    fn stamp(&mut self) {
+
+    fn stamp(&mut self, msg: &str) {
         let now = std::time::SystemTime::now();
-        let lapse = now.duration_since(self.latest).expect("Time went backwards").as_micros();
-        let total = now.duration_since(self.start).expect("Time went backwards").as_micros();
+        if self.echo {
+            let lapse = now
+                .duration_since(self.latest)
+                .expect("Time went backwards")
+                .as_secs_f64();
+            let total = now
+                .duration_since(self.start)
+                .expect("Time went backwards")
+                .as_secs_f64();
+            r::print(format!("{:>12.6} {:>12.6} : {}\n", total, lapse, msg).as_str());
+        }
         self.latest = now;
-        println!("{} {}", lapse, total);
+    }
+
+    fn total_as_secs_f64(&self) -> f64 {
+        let now = std::time::SystemTime::now();
+        now.duration_since(self.start)
+            .expect("Time went backwards")
+            .as_secs_f64()
     }
 }
