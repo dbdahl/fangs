@@ -5,9 +5,10 @@ use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::Zip;
 use num_traits::identities::Zero;
-use rand::Rng;
 use rand::SeedableRng;
+use rand::{Rng, RngCore};
 use rand_pcg::Pcg64Mcg;
+use rayon::prelude::*;
 use roxido::*;
 
 fn stamp(start: std::time::SystemTime) {
@@ -27,6 +28,7 @@ extern "C" fn fangs(
     _k: SEXP,
     _prob1: SEXP,
     n_iterations: SEXP,
+    n_cores: SEXP,
 ) -> SEXP {
     let start = std::time::SystemTime::now();
     panic_to_error!({
@@ -34,6 +36,11 @@ extern "C" fn fangs(
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         let n_best = n_best.as_integer() as usize;
         let n_iterations = n_iterations.as_integer() as usize;
+        let n_cores = n_cores.as_integer().max(0) as usize;
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(n_cores)
+            .build()
+            .unwrap();
         let n_samples = samples.length_usize();
         if n_samples < 1 {
             return r::error("Number of samples must be at least one.");
@@ -60,20 +67,32 @@ extern "C" fn fangs(
         stamp(start);
         println!("Score everything");
         // mean_density /= n_samples as f64;
-        let mut losses: Vec<_> = views
-            .iter()
-            .map(|z| compute_expected_loss_from_views(*z, &views))
-            .enumerate()
-            .collect();
+        let mut losses: Vec<_> = pool.install(|| {
+            views
+                .par_iter()
+                .map(|z| compute_expected_loss_from_views(*z, &views))
+                .enumerate()
+                .collect()
+        });
         losses.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         stamp(start);
         println!("nbest: {}", n_best);
-        let mut results: Vec<_> = losses
+        let losses2: Vec<_> = losses
             .iter()
             .take(n_best)
-            .map(|candidate| {
+            .map(|x| {
+                let mut seed = [0_u8; 16];
+                rng.fill_bytes(&mut seed);
+                let new_rng = Pcg64Mcg::from_seed(seed);
+                (x.0, x.1, new_rng)
+            })
+            .collect();
+        let mut results: Vec<_> = losses2
+            .into_par_iter()
+            .map(|mut candidate| {
                 let mut current_z = views[candidate.0].to_owned();
                 let mut current_loss = candidate.1;
+                let rng = &mut candidate.2;
                 let n_features = current_z.ncols();
                 for _ in 0..n_iterations {
                     let selected_item = rng.gen_range(0..n_items);
@@ -108,7 +127,10 @@ extern "C" fn fangs(
         let estimate = r::double_matrix(o.nrow(), columns_to_keep.len() as i32).protect();
         columns_to_keep
             .iter()
-            .for_each(|j| matrix_copy_into_column(estimate, *j, raw.column(*j).iter()));
+            .enumerate()
+            .for_each(|(j_new, j_old)| {
+                matrix_copy_into_column(estimate, j_new, raw.column(*j_old).iter())
+            });
         let list = r::list_vector_with_names_and_values(&[
             ("estimate", estimate),
             ("loss", r::double_scalar(loss).protect()),

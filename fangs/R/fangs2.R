@@ -8,6 +8,9 @@
 #' @param k something
 #' @param prob1 something
 #' @param maxIter something
+#' @param nCores The number of CPU cores to use, i.e., the number of
+#'   simultaneous runs at any given time. A value of zero indicates to use all
+#'   cores on the system.
 #'
 #' @return A list of the following elements:
 #' \itemize{
@@ -24,8 +27,9 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nBest=1, k=1, prob1=-1, maxIter) {
-  result <- .Kall(.fangs, Zs, nBest, k, prob1, maxIter)
+fangs2 <- function(Zs, nBest=1, k=1, prob1=-1, maxIter, nCores=0) {
+  Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
+  result <- .Kall(.fangs, Zs, nBest, k, prob1, maxIter, nCores)
   c(result, nBest=nBest, k=k, prob1=prob1, totalIter=maxIter)
 }
 
