@@ -2,4 +2,5 @@
 
 export(compute_loss)
 export(fangs)
+export(fangs2)
 useDynLib(fangs, .registration = TRUE)

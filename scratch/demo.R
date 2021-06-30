@@ -17,3 +17,7 @@ all[19] <- Inf
 m <- min(all)
 which(all==m)
 
+
+fangs(Zs, 1, 1, -1, 100)
+
+
