@@ -11,16 +11,6 @@ use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use roxido::*;
 
-fn stamp(start: std::time::SystemTime) {
-    println!(
-        "{}",
-        std::time::SystemTime::now()
-            .duration_since(start)
-            .expect("Time went backwards")
-            .as_micros()
-    );
-}
-
 #[no_mangle]
 extern "C" fn fangs(
     samples: SEXP,
@@ -30,7 +20,6 @@ extern "C" fn fangs(
     n_iterations: SEXP,
     n_cores: SEXP,
 ) -> SEXP {
-    let start = std::time::SystemTime::now();
     panic_to_error!({
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         let n_best = n_best.as_integer() as usize;
@@ -130,19 +119,6 @@ extern "C" fn fangs(
     })
 }
 
-fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item = &'a f64>) {
-    let slice = matrix.as_double_slice_mut();
-    let nrow = matrix.nrow_usize();
-    let subslice = &mut slice[(j * nrow)..((j + 1) * nrow)];
-    subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
-}
-
-/*
-fn density(y: ArrayView2<i32>) -> f64 {
-    (y.iter().filter(|x| **x != 0).count() as f64) / (y.len() as f64)
-}
-*/
-
 #[no_mangle]
 extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP) -> SEXP {
     panic_to_error!({
@@ -188,6 +164,19 @@ extern "C" fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
         r::double_scalar(loss)
     })
 }
+
+fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item = &'a f64>) {
+    let slice = matrix.as_double_slice_mut();
+    let nrow = matrix.nrow_usize();
+    let subslice = &mut slice[(j * nrow)..((j + 1) * nrow)];
+    subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
+}
+
+/*
+fn density(y: ArrayView2<i32>) -> f64 {
+    (y.iter().filter(|x| **x != 0).count() as f64) / (y.len() as f64)
+}
+*/
 
 fn compute_expected_loss_from_views(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> f64 {
     let sum = samples
@@ -243,4 +232,27 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
         .unwrap()
         .into_iter()
         .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
+}
+
+#[allow(dead_code)]
+struct DbdTimer {
+    start: std::time::SystemTime,
+}
+
+#[allow(dead_code)]
+impl DbdTimer {
+    fn new() -> Self {
+        DbdTimer {
+            start: std::time::SystemTime::now(),
+        }
+    }
+    fn stamp(&self) {
+        println!(
+            "{}",
+            std::time::SystemTime::now()
+                .duration_since(self.start)
+                .expect("Time went backwards")
+                .as_micros()
+        );
+    }
 }
