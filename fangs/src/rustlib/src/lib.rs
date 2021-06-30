@@ -94,10 +94,10 @@ extern "C" fn fangs(
                 let mut current_loss = candidate.1;
                 let rng = &mut candidate.2;
                 let n_features = current_z.ncols();
+                let total_length = n_items * n_features;
                 for _ in 0..n_iterations {
-                    let selected_item = rng.gen_range(0..n_items);
-                    let selected_feature = rng.gen_range(0..n_features);
-                    let index = [selected_item, selected_feature];
+                    let index = rng.gen_range(0..total_length);
+                    let index = [index / n_features, index % n_features];
                     current_z[index] = if current_z[index] == 0.0 { 1.0 } else { 0.0 };
                     let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
                     if new_loss < current_loss {
