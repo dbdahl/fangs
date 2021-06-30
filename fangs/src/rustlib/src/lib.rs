@@ -32,7 +32,6 @@ extern "C" fn fangs(
 ) -> SEXP {
     let start = std::time::SystemTime::now();
     panic_to_error!({
-        stamp(start);
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         let n_best = n_best.as_integer() as usize;
         let n_iterations = n_iterations.as_integer() as usize;
@@ -53,7 +52,6 @@ extern "C" fn fangs(
         let mut views = Vec::with_capacity(n_samples);
         // let mut mean_density = 0.0;
         let mut max_features = 0;
-        stamp(start);
         for i in 0..n_samples {
             let o = samples.get_list_element(i as isize);
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
@@ -64,8 +62,6 @@ extern "C" fn fangs(
             max_features += max_features.max(view.ncols());
             views.push(view)
         }
-        stamp(start);
-        println!("Score everything");
         // mean_density /= n_samples as f64;
         let mut losses: Vec<_> = pool.install(|| {
             views
@@ -75,9 +71,7 @@ extern "C" fn fangs(
                 .collect()
         });
         losses.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        stamp(start);
-        println!("nbest: {}", n_best);
-        let losses2: Vec<_> = losses
+        let best_losses_with_rngs: Vec<_> = losses
             .iter()
             .take(n_best)
             .map(|x| {
@@ -87,12 +81,10 @@ extern "C" fn fangs(
                 (x.0, x.1, new_rng)
             })
             .collect();
-        let mut results: Vec<_> = losses2
+        let mut candidates: Vec<_> = best_losses_with_rngs
             .into_par_iter()
-            .map(|mut candidate| {
-                let mut current_z = views[candidate.0].to_owned();
-                let mut current_loss = candidate.1;
-                let rng = &mut candidate.2;
+            .map(|(index_into_views, mut current_loss, mut rng)| {
+                let mut current_z = views[index_into_views].to_owned();
                 let n_features = current_z.ncols();
                 let total_length = n_items * n_features;
                 for _ in 0..n_iterations {
@@ -109,10 +101,9 @@ extern "C" fn fangs(
                 (current_z, current_loss)
             })
             .collect();
-        stamp(start);
-        results.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let (raw, loss) = results.swap_remove(0);
-        let columns_to_keep: Vec<usize> = raw
+        candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+        let (best_z, best_loss) = candidates.swap_remove(0);
+        let columns_to_keep: Vec<usize> = best_z
             .axis_iter(Axis(1))
             .enumerate()
             .filter_map(|(j, column)| {
@@ -123,20 +114,18 @@ extern "C" fn fangs(
                 }
             })
             .collect();
-        stamp(start);
-        let estimate = r::double_matrix(o.nrow(), columns_to_keep.len() as i32).protect();
+        let estimate = r::double_matrix(n_items as i32, columns_to_keep.len() as i32).protect();
         columns_to_keep
             .iter()
             .enumerate()
             .for_each(|(j_new, j_old)| {
-                matrix_copy_into_column(estimate, j_new, raw.column(*j_old).iter())
+                matrix_copy_into_column(estimate, j_new, best_z.column(*j_old).iter())
             });
         let list = r::list_vector_with_names_and_values(&[
             ("estimate", estimate),
-            ("loss", r::double_scalar(loss).protect()),
+            ("loss", r::double_scalar(best_loss).protect()),
         ]);
         r::unprotect(2);
-        stamp(start);
         list
     })
 }

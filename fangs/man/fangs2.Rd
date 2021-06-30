@@ -4,7 +4,7 @@
 \alias{fangs2}
 \title{Feature Allocation Neighborhood Greedy Search}
 \usage{
-fangs2(Zs, nBest = 1, k = 1, prob1 = -1, maxIter)
+fangs2(Zs, nBest = 1, k = 1, prob1 = -1, maxIter, nCores = 0)
 }
 \arguments{
 \item{Zs}{something}
@@ -16,6 +16,10 @@ fangs2(Zs, nBest = 1, k = 1, prob1 = -1, maxIter)
 \item{prob1}{something}
 
 \item{maxIter}{something}
+
+\item{nCores}{The number of CPU cores to use, i.e., the number of
+simultaneous runs at any given time. A value of zero indicates to use all
+cores on the system.}
 }
 \value{
 A list of the following elements:
