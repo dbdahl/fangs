@@ -9,7 +9,6 @@ crate-type = ["staticlib"]
 
 [dependencies]
 roxido = { path="roxido" }
-munkres = "0.5.2"
 lapjv = "0.2.0"
 ndarray = "0.15.3"
 num-traits = "0.2.14"

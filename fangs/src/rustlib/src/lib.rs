@@ -1,8 +1,6 @@
 mod registration;
 mod timers;
 
-use lapjv::{cost, lapjv, Matrix};
-use munkres::{solve_assignment, WeightMatrix};
 use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::Zip;
@@ -325,42 +323,9 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
     y1: ArrayView2<A>,
     y2: ArrayView2<A>,
 ) -> f64 {
-    let k1 = y1.ncols();
-    let k2 = y2.ncols();
-    let k = k1.max(k2);
-    if k == 0 {
-        return 0.0;
-    }
-    let mut vec = Vec::with_capacity(k * k);
-    let zero = Array1::zeros(y1.nrows());
-    let zero_view = zero.view();
-    for i1 in 0..k {
-        let x1 = if i1 >= k1 { zero_view } else { y1.column(i1) };
-        for i2 in 0..k {
-            let x2 = if i2 >= k2 { zero_view } else { y2.column(i2) };
-            vec.push(
-                Zip::from(&x1)
-                    .and(&x2)
-                    .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 }),
-            );
-        }
-    }
-    let old_crate = match std::env::var("DBD_OLD_CRATE") {
-        Ok(x) if x == "TRUE" || x == "true" => true,
-        _ => false,
-    };
-    if old_crate {
-        let mut w = WeightMatrix::from_row_vec(k, vec.clone());
-        let solution = solve_assignment(&mut w);
-        let w = unsafe { Array2::from_shape_vec_unchecked((k, k), vec) };
-        solution
-            .unwrap()
-            .into_iter()
-            .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
-    } else {
-        let w = unsafe { Matrix::from_shape_vec_unchecked((k, k), vec) };
-        let result = lapjv(&w).unwrap();
-        cost(&w, &result.0)
+    match make_weight_matrix(y1, y2) {
+        Some(w) => cost(&w),
+        None => 0.0,
     }
 }
 
@@ -371,11 +336,30 @@ fn compute_loss_from_views_timed<A: Clone + Zero + PartialEq>(
     clock2: &mut TicToc,
 ) -> f64 {
     clock1.tic();
+    match make_weight_matrix(y1, y2) {
+        Some(w) => {
+            clock1.toc();
+            clock2.tic();
+            let result = cost(&w);
+            clock2.toc();
+            result
+        }
+        None => {
+            clock1.toc();
+            0.0
+        }
+    }
+}
+
+fn make_weight_matrix<A: Clone + Zero + PartialEq>(
+    y1: ArrayView2<A>,
+    y2: ArrayView2<A>,
+) -> Option<lapjv::Matrix<f64>> {
     let k1 = y1.ncols();
     let k2 = y2.ncols();
     let k = k1.max(k2);
     if k == 0 {
-        return 0.0;
+        return None;
     }
     let mut vec = Vec::with_capacity(k * k);
     let zero = Array1::zeros(y1.nrows());
@@ -391,25 +375,10 @@ fn compute_loss_from_views_timed<A: Clone + Zero + PartialEq>(
             );
         }
     }
-    clock1.toc();
-    clock2.tic();
-    let old_crate = match std::env::var("DBD_OLD_CRATE") {
-        Ok(x) if x == "TRUE" || x == "true" => true,
-        _ => false,
-    };
-    let result = if old_crate {
-        let mut w = WeightMatrix::from_row_vec(k, vec.clone());
-        let solution = solve_assignment(&mut w);
-        let w = unsafe { Array2::from_shape_vec_unchecked((k, k), vec) };
-        solution
-            .unwrap()
-            .into_iter()
-            .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
-    } else {
-        let w = unsafe { Matrix::from_shape_vec_unchecked((k, k), vec) };
-        let result = lapjv(&w).unwrap();
-        cost(&w, &result.0)
-    };
-    clock2.toc();
-    result
+    Some(unsafe { lapjv::Matrix::from_shape_vec_unchecked((k, k), vec) })
+}
+
+fn cost(weight_matrix: &lapjv::Matrix<f64>) -> f64 {
+    let solution = lapjv::lapjv(weight_matrix).unwrap();
+    lapjv::cost(weight_matrix, &solution.0)
 }
