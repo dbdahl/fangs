@@ -2,9 +2,7 @@ mod registration;
 mod timers;
 
 use ndarray::prelude::*;
-use ndarray::Array1;
-use ndarray::Zip;
-use num_traits::identities::Zero;
+use ndarray::{Array1, Zip};
 use rand::{Rng, RngCore, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
@@ -51,7 +49,7 @@ extern "C" fn fangs(
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
                 return r::error("All elements of 'samples' must be double matrices with a consistent number of rows.");
             }
-            let view = view_double(o);
+            let view = make_view(o);
             max_n_features_observed += max_n_features_observed.max(view.ncols());
             views.push(view)
         }
@@ -216,23 +214,11 @@ extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP) -> SEXP {
     panic_to_error!({
         let n_samples = samples.xlength_usize();
         let mut sum = 0.0;
-        if z.is_integer() {
-            let z = view_integer(z);
+        if z.is_double() {
+            let z = make_view(z);
             for i in 0..n_samples {
                 let o = samples.get_list_element(i as isize);
-                sum += compute_loss_from_views(z, view_integer(o))
-            }
-        } else if z.is_double() {
-            let z = view_double(z);
-            for i in 0..n_samples {
-                let o = samples.get_list_element(i as isize);
-                sum += compute_loss_from_views(z, view_double(o))
-            }
-        } else if z.is_logical() {
-            let z = view_logical(z);
-            for i in 0..n_samples {
-                let o = samples.get_list_element(i as isize);
-                sum += compute_loss_from_views(z, view_logical(o))
+                sum += compute_loss_from_views(z, make_view(o))
             }
         } else {
             return r::error("Unsupported type for 'Z'.");
@@ -244,12 +230,8 @@ extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP) -> SEXP {
 #[no_mangle]
 extern "C" fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
     panic_to_error!({
-        let loss = if z1.is_integer() && z2.is_integer() {
-            compute_loss_from_views(view_integer(z1), view_integer(z2))
-        } else if z1.is_double() && z2.is_double() {
-            compute_loss_from_views(view_double(z1), view_double(z2))
-        } else if z1.is_logical() && z2.is_logical() {
-            compute_loss_from_views(view_logical(z1), view_logical(z2))
+        let loss = if z1.is_double() && z2.is_double() {
+            compute_loss_from_views(make_view(z1), make_view(z2))
         } else {
             return r::error("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
         };
@@ -283,35 +265,20 @@ fn compute_expected_loss_from_views_timed(
     sum / (samples.len() as f64)
 }
 
-fn view_integer(z: SEXP) -> ArrayView2<'static, i32> {
-    unsafe {
-        ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::INTEGER(z))
-    }
-}
-
-fn view_double(z: SEXP) -> ArrayView2<'static, f64> {
+fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::REAL(z)) }
 }
 
-fn view_logical(z: SEXP) -> ArrayView2<'static, i32> {
-    unsafe {
-        ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::LOGICAL(z))
-    }
-}
-
-fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
-    y1: ArrayView2<A>,
-    y2: ArrayView2<A>,
-) -> f64 {
+fn compute_loss_from_views(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> f64 {
     match make_weight_matrix(y1, y2) {
         Some(w) => cost(&w),
         None => 0.0,
     }
 }
 
-fn compute_loss_from_views_timed<A: Clone + Zero + PartialEq>(
-    y1: ArrayView2<A>,
-    y2: ArrayView2<A>,
+fn compute_loss_from_views_timed(
+    y1: ArrayView2<f64>,
+    y2: ArrayView2<f64>,
     clock1: &mut TicToc,
     clock2: &mut TicToc,
 ) -> f64 {
@@ -341,10 +308,7 @@ fn make_weight_matrices(
         .collect()
 }
 
-fn make_weight_matrix<A: Clone + Zero + PartialEq>(
-    y1: ArrayView2<A>,
-    y2: ArrayView2<A>,
-) -> Option<lapjv::Matrix<f64>> {
+fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<lapjv::Matrix<f64>> {
     let k1 = y1.ncols();
     let k2 = y2.ncols();
     let k = k1.max(k2);
