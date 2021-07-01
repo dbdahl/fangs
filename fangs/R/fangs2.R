@@ -13,12 +13,6 @@
 #'   in \code{Zs} to use to seed the algorithm.
 #' @param nBest Among \code{nSamples} feature allocations, how many should be
 #'   sweetened when searching for the best estimate.
-#' @param k At least one bit it flipped in each proposal.  This argument
-#'   provides the size of the binomial distribution when deciding how many more
-#'   bits should be proposed to be flipped.
-#' @param probFlip At least one bit it flipped in each proposal.  This argument
-#'   provides the probability of the binomial distribution when deciding how
-#'   many more bits should be proposed to be flipped. WAHT IF NULL?
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous runs at any given time. A value of zero indicates to use all
 #'   cores on the system.
@@ -38,8 +32,8 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nIterations=100, maxNFeatures=0, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, nCores=0) {
+fangs2 <- function(Zs, nIterations=100, maxNFeatures=0, nSamples=length(Zs), nBest=1, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nSamples, nBest, k, probFlip, nCores)
-  c(result, nIterations=nIterations, maxNFeatures=maxNFeatures, nSamples=nSamples, nBest=nBest, k=k, probFlip=probFlip)
+  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nSamples, nBest, nCores)
+  c(result, nIterations=nIterations, maxNFeatures=maxNFeatures, nSamples=nSamples, nBest=nBest)
 }

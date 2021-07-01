@@ -5,9 +5,7 @@ use ndarray::prelude::*;
 use ndarray::Array1;
 use ndarray::Zip;
 use num_traits::identities::Zero;
-use rand::RngCore;
-use rand::SeedableRng;
-use rand_distr::{Binomial, Distribution};
+use rand::{Rng, RngCore, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use roxido::*;
@@ -20,8 +18,6 @@ extern "C" fn fangs(
     max_n_features: SEXP,
     n_samples: SEXP,
     n_best: SEXP,
-    k: SEXP,
-    prob_flip: SEXP,
     n_cores: SEXP,
 ) -> SEXP {
     panic_to_error!({
@@ -33,7 +29,6 @@ extern "C" fn fangs(
         let max_n_features = max_n_features.as_integer().max(0) as usize;
         let n_samples = (n_samples.as_integer().max(1) as usize).min(n_samples_in_all);
         let n_best = (n_best.as_integer().max(1) as usize).min(n_samples);
-        let k = k.as_integer().max(0) as u64;
         let n_iterations = n_iterations.as_integer().max(0) as usize;
         let n_cores = n_cores.as_integer().max(0) as usize;
         let pool = rayon::ThreadPoolBuilder::new()
@@ -46,9 +41,7 @@ extern "C" fn fangs(
         }
         let n_items = o.nrow_usize();
         let mut views = Vec::with_capacity(n_samples);
-        let mut mean_density = 0.0;
         let mut max_n_features_observed = 0;
-        let dynamic_prob_flip = k > 0 && prob_flip.is_nil();
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         if timer.echo() {
             r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str())
@@ -59,20 +52,9 @@ extern "C" fn fangs(
                 return r::error("All elements of 'samples' must be double matrices with a consistent number of rows.");
             }
             let view = view_double(o);
-            mean_density += if dynamic_prob_flip {
-                density(view)
-            } else {
-                0.0
-            };
             max_n_features_observed += max_n_features_observed.max(view.ncols());
             views.push(view)
         }
-        let prob_flip = if dynamic_prob_flip {
-            mean_density /= n_samples_in_all as f64;
-            0.5 - (mean_density - 0.5).abs()
-        } else {
-            prob_flip.as_double().min(1.0).max(0.0)
-        };
         if timer.echo() {
             r::print(timer.stamp("Made views.\n").unwrap().as_str())
         }
@@ -105,8 +87,9 @@ extern "C" fn fangs(
                     let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
                         view[[i, selected_columns[j]]]
                     });
-                    let loss = compute_expected_loss_from_views(z.view(), &views);
-                    (z, loss, rng)
+                    let weight_matrices = make_weight_matrices(z.view(), &views);
+                    let loss = expected_cost(&weight_matrices);
+                    (z, loss, weight_matrices, rng)
                 })
                 .collect()
         });
@@ -121,33 +104,33 @@ extern "C" fn fangs(
             )
         }
         let mut bests: Vec<_> = pool.install(|| {
-            candidates.into_par_iter().enumerate()
+            candidates
+                .into_par_iter()
+                .enumerate()
                 .map(
-                    |(index_into_candidates, (mut current_z, mut current_loss, mut rng))| {
+                    |(
+                        index_into_candidates,
+                        (mut current_z, mut current_loss, mut weight_matrices, mut rng),
+                    )| {
                         let mut clock1 = TicToc::new();
                         let mut clock2 = TicToc::new();
                         let n_features = current_z.ncols();
-                        let binomial = Binomial::new(k, prob_flip).unwrap();
                         let total_length = n_items * n_features;
                         let mut n_accepts = 0;
                         for iteration_counter in 0..n_iterations {
                             fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
                                 [index / ncols, index % ncols]
                             }
-                            let n_to_flip = 1 + binomial.sample(&mut rng);
-                            let mut restoration_table = Vec::with_capacity(n_to_flip as usize);
-                            for index in rand::seq::index::sample(
-                                &mut rng,
-                                total_length,
-                                (n_to_flip as usize).min(total_length),
-                            ) {
-                                let index = index_1d_to_2d(index, n_features);
-                                let current_bit = current_z[index];
-                                restoration_table.push((index, current_bit));
-                                current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
-                            }
+                            let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                            let current_bit = current_z[index];
+                            current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
                             let new_loss = if timer.echo() {
-                                compute_expected_loss_from_views_timed(current_z.view(), &views, &mut clock1, &mut clock2)
+                                compute_expected_loss_from_views_timed(
+                                    current_z.view(),
+                                    &views,
+                                    &mut clock1,
+                                    &mut clock2,
+                                )
                             } else {
                                 compute_expected_loss_from_views(current_z.view(), &views)
                             };
@@ -157,22 +140,23 @@ extern "C" fn fangs(
                                 if timer.echo() {
                                     // R is not thread-safe, so I cannot call r::print() here.
                                     println!(
-                                        "Candidate {} improved to {} by flipping {} bit{} at iteration {}.",
-                                        index_into_candidates,
-                                    current_loss,
-                                        n_to_flip,
-                                        if n_to_flip == 1 { "" } else { "s" },
-                                        iteration_counter
+                                        "Candidate {} improved to {} at iteration {}.",
+                                        index_into_candidates, current_loss, iteration_counter
                                     )
                                 }
                             } else {
-                                for (index, value) in restoration_table {
-                                    current_z[index] = value;
-                                }
+                                current_z[index] = current_bit;
                             }
                         }
 
-                        (current_z, current_loss, index_into_candidates, n_accepts, clock1, clock2)
+                        (
+                            current_z,
+                            current_loss,
+                            index_into_candidates,
+                            n_accepts,
+                            clock1,
+                            clock2,
+                        )
                     },
                 )
                 .collect()
@@ -280,10 +264,6 @@ fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item 
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-fn density(y: ArrayView2<f64>) -> f64 {
-    (y.iter().filter(|x| **x != 0.0).count() as f64) / (y.len() as f64)
-}
-
 fn compute_expected_loss_from_views(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> f64 {
     let sum = samples
         .iter()
@@ -351,6 +331,16 @@ fn compute_loss_from_views_timed<A: Clone + Zero + PartialEq>(
     }
 }
 
+fn make_weight_matrices(
+    z: ArrayView2<f64>,
+    samples: &Vec<ArrayView2<f64>>,
+) -> Vec<lapjv::Matrix<f64>> {
+    samples
+        .iter()
+        .map(|zz| make_weight_matrix(z, *zz).unwrap())
+        .collect()
+}
+
 fn make_weight_matrix<A: Clone + Zero + PartialEq>(
     y1: ArrayView2<A>,
     y2: ArrayView2<A>,
@@ -376,6 +366,10 @@ fn make_weight_matrix<A: Clone + Zero + PartialEq>(
         }
     }
     Some(unsafe { lapjv::Matrix::from_shape_vec_unchecked((k, k), vec) })
+}
+
+fn expected_cost(weight_matrices: &Vec<lapjv::Matrix<f64>>) -> f64 {
+    weight_matrices.iter().fold(0.0, |acc, w| acc + cost(w)) / (weight_matrices.len() as f64)
 }
 
 fn cost(weight_matrix: &lapjv::Matrix<f64>) -> f64 {

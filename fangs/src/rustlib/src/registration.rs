@@ -28,7 +28,7 @@ extern "C" fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
 }
 
 #[no_mangle]
-extern "C" fn fangs(Zs: SEXP, nProposals: SEXP, maxNFeatures: SEXP, nSamples: SEXP, nBest: SEXP, k: SEXP, probFlip: SEXP, nCores: SEXP) -> SEXP {
+extern "C" fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nSamples: SEXP, nBest: SEXP, nCores: SEXP) -> SEXP {
     panic_to_error!({
         unsafe { rbindings::R_NilValue }
     })
@@ -57,7 +57,7 @@ extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
     call_routines.push(rbindings::R_CallMethodDef {
         name: names.last().unwrap().as_ptr(),
         fun: unsafe { std::mem::transmute(crate::fangs as *const u8) },
-        numArgs: 8,
+        numArgs: 6,
     });
     call_routines.push(rbindings::R_CallMethodDef {
         name: std::ptr::null(),
@@ -76,3 +76,4 @@ extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
         rbindings::R_forceSymbols(info, 1);
     }
 }
+
