@@ -1,5 +1,6 @@
 mod registration;
 
+use lapjv::{cost, lapjv, Matrix};
 use munkres::{solve_assignment, WeightMatrix};
 use ndarray::prelude::*;
 use ndarray::Array1;
@@ -288,13 +289,23 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
             );
         }
     }
-    let mut w = WeightMatrix::from_row_vec(k, vec.clone());
-    let solution = solve_assignment(&mut w);
-    let w = unsafe { Array2::from_shape_vec_unchecked((k, k), vec) };
-    solution
-        .unwrap()
-        .into_iter()
-        .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
+    let old_crate = match std::env::var("DBD_OLD_CRATE") {
+        Ok(x) if x == "TRUE" || x == "true" => true,
+        _ => false,
+    };
+    if old_crate {
+        let mut w = WeightMatrix::from_row_vec(k, vec.clone());
+        let solution = solve_assignment(&mut w);
+        let w = unsafe { Array2::from_shape_vec_unchecked((k, k), vec) };
+        solution
+            .unwrap()
+            .into_iter()
+            .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
+    } else {
+        let w = Matrix::from_shape_vec((k, k), vec).unwrap();
+        let result = lapjv(&w).unwrap();
+        cost(&w, &result.0)
+    }
 }
 
 #[allow(dead_code)]
