@@ -105,10 +105,9 @@ extern "C" fn fangs(
                 .collect()
         });
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+        candidates.truncate(n_best);
         timer.stamp("Computed expected loss for candidate Zs.");
-        let best: Vec<_> = candidates.into_iter().take(n_best).enumerate().collect();
-        let mut candidates: Vec<_> = best
-                .into_par_iter()
+        let mut bests: Vec<_> = candidates.into_par_iter().enumerate()
                 .map(
                     |(index_into_candidates, (mut current_z, mut current_loss, mut rng))| {
                         let n_features = current_z.ncols();
@@ -156,8 +155,8 @@ extern "C" fn fangs(
                 )
                 .collect();
         timer.stamp("Sweetened bests.");
-        candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let (best_z, best_loss, index_into_candidates, n_accepts) = candidates.swap_remove(0);
+        bests.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+        let (best_z, best_loss, index_into_candidates, n_accepts) = bests.swap_remove(0);
         if timer.echo {
             r::print(
                 format!(
