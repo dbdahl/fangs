@@ -6,37 +6,45 @@
 \usage{
 fangs2(
   Zs,
+  nProposals = 100,
   maxNFeatures = 0,
   nSamples = length(Zs),
   nBest = 1,
   k = 0,
   probFlip = NULL,
-  maxIter = 100,
   nCores = 0
 )
 }
 \arguments{
 \item{Zs}{something}
 
+\item{nProposals}{The number of proposals to consider.}
+
 \item{maxNFeatures}{The maximum number of features that can be considered by
 the optimization algorithm, which has important implications for the
 interpretability of the resulting feature allocation. If the supplied value
 is zero, there is no constraint.}
 
-\item{nBest}{something}
+\item{nSamples}{The number of feature allocations from the provided samples
+in \code{Zs} to use to seed the algorithm.}
 
-\item{k}{something}
+\item{nBest}{Among \code{nSamples} feature allocations, how many should be
+sweetened when searching for the best estimate.}
 
-\item{probFlip}{something}
+\item{k}{At least one bit it flipped in each proposal.  This argument
+provides the size of the binomial distribution when deciding how many more
+bits should be proposed to be flipped.}
 
-\item{maxIter}{something}
+\item{probFlip}{At least one bit it flipped in each proposal.  This argument
+provides the probability of the binomial distribution when deciding how
+many more bits should be proposed to be flipped.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous runs at any given time. A value of zero indicates to use all
 cores on the system.}
 }
 \value{
-A list of the following elements:
+A list of the following elements.  \emph{This needs to be updated}:
 \itemize{
 \item Z - The letters of the alphabet.
 \item bestDraw - A vector of numbers.

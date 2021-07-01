@@ -16,12 +16,12 @@ use roxido::*;
 #[no_mangle]
 extern "C" fn fangs(
     samples: SEXP,
+    n_proposals: SEXP,
     max_n_features: SEXP,
     n_samples: SEXP,
     n_best: SEXP,
     k: SEXP,
     prob_flip: SEXP,
-    n_iterations: SEXP,
     n_cores: SEXP,
 ) -> SEXP {
     panic_to_error!({
@@ -34,7 +34,7 @@ extern "C" fn fangs(
         let n_samples = (n_samples.as_integer().max(1) as usize).min(n_samples_in_all);
         let n_best = (n_best.as_integer().max(1) as usize).min(n_samples);
         let k = k.as_integer().max(0) as u64;
-        let n_iterations = n_iterations.as_integer().max(0) as usize;
+        let n_iterations = n_proposals.as_integer().max(0) as usize;
         let n_cores = n_cores.as_integer().max(0) as usize;
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(n_cores)

@@ -28,7 +28,7 @@ extern "C" fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
 }
 
 #[no_mangle]
-extern "C" fn fangs(Zs: SEXP, maxNFeatures: SEXP, nSamples: SEXP, nBest: SEXP, k: SEXP, probFlip: SEXP, maxIter: SEXP, nCores: SEXP) -> SEXP {
+extern "C" fn fangs(Zs: SEXP, nProposals: SEXP, maxNFeatures: SEXP, nSamples: SEXP, nBest: SEXP, k: SEXP, probFlip: SEXP, nCores: SEXP) -> SEXP {
     panic_to_error!({
         unsafe { rbindings::R_NilValue }
     })
