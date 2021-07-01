@@ -4,7 +4,7 @@
 #' provided.
 #'
 #' @param Zs something
-#' @param nProposals The number of proposals to consider.
+#' @param nIterations The number of iterations (i.e., proposed changes) to consider.
 #' @param maxNFeatures The maximum number of features that can be considered by
 #'   the optimization algorithm, which has important implications for the
 #'   interpretability of the resulting feature allocation. If the supplied value
@@ -38,8 +38,8 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nProposals=100, maxNFeatures=0, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, nCores=0) {
+fangs2 <- function(Zs, nIterations=100, maxNFeatures=0, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nProposals, maxNFeatures, nSamples, nBest, k, probFlip, nCores)
-  c(result, nProposals=nProposals, maxNFeatures=maxNFeatures, nSamples=nSamples, nBest=nBest, k=k, probFlip=probFlip)
+  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nSamples, nBest, k, probFlip, nCores)
+  c(result, nIterations=nIterations, maxNFeatures=maxNFeatures, nSamples=nSamples, nBest=nBest, k=k, probFlip=probFlip)
 }

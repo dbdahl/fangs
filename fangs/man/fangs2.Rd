@@ -6,7 +6,7 @@
 \usage{
 fangs2(
   Zs,
-  nProposals = 100,
+  nIterations = 100,
   maxNFeatures = 0,
   nSamples = length(Zs),
   nBest = 1,
@@ -18,7 +18,7 @@ fangs2(
 \arguments{
 \item{Zs}{something}
 
-\item{nProposals}{The number of proposals to consider.}
+\item{nIterations}{The number of iterations (i.e., proposed changes) to consider.}
 
 \item{maxNFeatures}{The maximum number of features that can be considered by
 the optimization algorithm, which has important implications for the
