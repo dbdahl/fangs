@@ -314,7 +314,7 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
             .into_iter()
             .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
     } else {
-        let w = Matrix::from_shape_vec((k, k), vec).unwrap();
+        let w = unsafe { Matrix::from_shape_vec_unchecked((k, k), vec) };
         let result = lapjv(&w).unwrap();
         cost(&w, &result.0)
     }
