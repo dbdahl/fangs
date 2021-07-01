@@ -16,6 +16,7 @@ use roxido::*;
 #[no_mangle]
 extern "C" fn fangs(
     samples: SEXP,
+    max_n_features: SEXP,
     n_samples: SEXP,
     n_best: SEXP,
     k: SEXP,
@@ -29,7 +30,7 @@ extern "C" fn fangs(
         if n_samples_in_all < 1 {
             return r::error("Number of samples must be at least one.");
         }
-        let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
+        let max_n_features = max_n_features.as_integer().max(0) as usize;
         let n_samples = (n_samples.as_integer().max(1) as usize).min(n_samples_in_all);
         let n_best = (n_best.as_integer().max(1) as usize).min(n_samples);
         let k = k.as_integer().max(0) as u64;
@@ -46,8 +47,9 @@ extern "C" fn fangs(
         let n_items = o.nrow_usize();
         let mut views = Vec::with_capacity(n_samples);
         let mut mean_density = 0.0;
-        let mut max_features = 0;
+        let mut max_n_features_observed = 0;
         let dynamic_prob_flip = k > 0 && prob_flip.is_nil();
+        let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         timer.stamp("Parsed parameters.");
         for i in 0..n_samples_in_all {
             let o = samples.get_list_element(i as isize);
@@ -60,7 +62,7 @@ extern "C" fn fangs(
             } else {
                 0.0
             };
-            max_features += max_features.max(view.ncols());
+            max_n_features_observed += max_n_features_observed.max(view.ncols());
             views.push(view)
         }
         let prob_flip = if dynamic_prob_flip {
@@ -70,78 +72,89 @@ extern "C" fn fangs(
             prob_flip.as_double().min(1.0).max(0.0)
         };
         timer.stamp("Made views.");
-        let selected: Vec<_> = rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
-            .into_iter()
-            .map(|x| x as usize)
-            .collect();
-        let mut losses: Vec<_> = pool.install(|| {
-            selected
-                .par_iter()
-                .map(|i| (*i, compute_expected_loss_from_views(views[*i], &views)))
+        let selected_views_with_rngs: Vec<_> =
+            rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
+                .into_iter()
+                .map(|i| {
+                    let mut seed = [0_u8; 16];
+                    rng.fill_bytes(&mut seed);
+                    let new_rng = Pcg64Mcg::from_seed(seed);
+                    (i as usize, new_rng)
+                })
+                .collect();
+        timer.stamp("Selected views.");
+        let mut candidates: Vec<_> = pool.install(|| {
+            selected_views_with_rngs
+                .into_par_iter()
+                .map(|(index, mut rng)| {
+                    let view = views[index];
+                    let n_features_in_view = view.ncols();
+                    let n_features = if max_n_features == 0 {
+                        n_features_in_view
+                    } else {
+                        max_n_features.min(n_features_in_view)
+                    };
+                    let selected_columns: Vec<_> =
+                        rand::seq::index::sample(&mut rng, view.ncols(), n_features).into_vec();
+                    let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
+                        view[[i, selected_columns[j]]]
+                    });
+                    let loss = compute_expected_loss_from_views(z.view(), &views);
+                    (z, loss, rng)
+                })
                 .collect()
         });
-        losses.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let best_losses_with_rngs: Vec<_> = losses
-            .iter()
-            .take(n_best)
-            .enumerate()
-            .map(|x| {
-                let mut seed = [0_u8; 16];
-                rng.fill_bytes(&mut seed);
-                let new_rng = Pcg64Mcg::from_seed(seed);
-                (x.0, (x.1).0, (x.1).1, new_rng)
-            })
-            .collect();
-        timer.stamp("Computed expected loss for selected.");
-        let mut candidates: Vec<_> = best_losses_with_rngs
-            .into_par_iter()
-            .map(
-                |(index_into_candidates, index_into_views, mut current_loss, mut rng)| {
-                    let mut current_z = views[index_into_views].to_owned();
-                    let n_features = current_z.ncols();
-                    let binomial = Binomial::new(k, prob_flip).unwrap();
-                    let total_length = n_items * n_features;
-                    let mut n_accepts = 0;
-                    for iteration_counter in 0..n_iterations {
-                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                            [index / ncols, index % ncols]
-                        }
-                        let n_to_flip = 1 + binomial.sample(&mut rng);
-                        let mut restoration_table = Vec::with_capacity(n_to_flip as usize);
-                        for index in rand::seq::index::sample(
-                            &mut rng,
-                            total_length,
-                            (n_to_flip as usize).min(total_length),
-                        ) {
-                            let index = index_1d_to_2d(index, n_features);
-                            let current_bit = current_z[index];
-                            restoration_table.push((index, current_bit));
-                            current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
-                        }
-                        let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
-                        if new_loss < current_loss {
-                            n_accepts += 1;
-                            current_loss = new_loss;
-                            if timer.echo {
-                                println!(
-                                    "Candidate {} improved to {} by flipping {} bit{} at iteration {}.",
-                                    index_into_candidates,
-                                current_loss,
-                                    n_to_flip,
-                                    if n_to_flip == 1 { "" } else { "s" },
-                                    iteration_counter
-                                );
-                            };
-                        } else {
-                            for (index, value) in restoration_table {
-                                current_z[index] = value;
+        candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+        timer.stamp("Computed expected loss for candidate Zs.");
+        let best: Vec<_> = candidates.into_iter().take(n_best).enumerate().collect();
+        let mut candidates: Vec<_> = best
+                .into_par_iter()
+                .map(
+                    |(index_into_candidates, (mut current_z, mut current_loss, mut rng))| {
+                        let n_features = current_z.ncols();
+                        let binomial = Binomial::new(k, prob_flip).unwrap();
+                        let total_length = n_items * n_features;
+                        let mut n_accepts = 0;
+                        for iteration_counter in 0..n_iterations {
+                            fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                                [index / ncols, index % ncols]
+                            }
+                            let n_to_flip = 1 + binomial.sample(&mut rng);
+                            let mut restoration_table = Vec::with_capacity(n_to_flip as usize);
+                            for index in rand::seq::index::sample(
+                                &mut rng,
+                                total_length,
+                                (n_to_flip as usize).min(total_length),
+                            ) {
+                                let index = index_1d_to_2d(index, n_features);
+                                let current_bit = current_z[index];
+                                restoration_table.push((index, current_bit));
+                                current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
+                            }
+                            let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
+                            if new_loss < current_loss {
+                                n_accepts += 1;
+                                current_loss = new_loss;
+                                if timer.echo {
+                                    println!(
+                                        "Candidate {} improved to {} by flipping {} bit{} at iteration {}.",
+                                        index_into_candidates,
+                                    current_loss,
+                                        n_to_flip,
+                                        if n_to_flip == 1 { "" } else { "s" },
+                                        iteration_counter
+                                    );
+                                };
+                            } else {
+                                for (index, value) in restoration_table {
+                                    current_z[index] = value;
+                                }
                             }
                         }
-                    }
-                    (current_z, current_loss, index_into_candidates, n_accepts)
-                },
-            )
-            .collect();
+                        (current_z, current_loss, index_into_candidates, n_accepts)
+                    },
+                )
+                .collect();
         timer.stamp("Sweetened bests.");
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         let (best_z, best_loss, index_into_candidates, n_accepts) = candidates.swap_remove(0);

@@ -6,6 +6,7 @@
 \usage{
 fangs2(
   Zs,
+  maxNFeatures = 0,
   nSamples = length(Zs),
   nBest = 1,
   k = 0,
@@ -16,6 +17,11 @@ fangs2(
 }
 \arguments{
 \item{Zs}{something}
+
+\item{maxNFeatures}{The maximum number of features that can be considered by
+the optimization algorithm, which has important implications for the
+interpretability of the resulting feature allocation. If the supplied value
+is zero, there is no constraint.}
 
 \item{nBest}{something}
 

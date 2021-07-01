@@ -4,6 +4,10 @@
 #' provided.
 #'
 #' @param Zs something
+#' @param maxNFeatures The maximum number of features that can be considered by
+#'   the optimization algorithm, which has important implications for the
+#'   interpretability of the resulting feature allocation. If the supplied value
+#'   is zero, there is no constraint.
 #' @param nBest something
 #' @param k something
 #' @param probFlip something
@@ -27,9 +31,9 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, maxIter=100, nCores=0) {
+fangs2 <- function(Zs, maxNFeatures=0, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, maxIter=100, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nSamples, nBest, k, probFlip, maxIter, nCores)
+  result <- .Kall(.fangs, Zs, maxNFeatures, nSamples, nBest, k, probFlip, maxIter, nCores)
   c(result, nBest=nBest, k=k, probFlip=probFlip, totalIter=maxIter)
 }
 
