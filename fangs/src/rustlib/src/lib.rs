@@ -122,7 +122,8 @@ extern "C" fn fangs(
                     .as_str(),
             )
         }
-        let mut bests: Vec<_> = candidates.into_par_iter().enumerate()
+        let mut bests: Vec<_> = pool.install(|| {
+            candidates.into_par_iter().enumerate()
                 .map(
                     |(index_into_candidates, (mut current_z, mut current_loss, mut rng))| {
                         let mut clock1 = TicToc::new();
@@ -176,7 +177,8 @@ extern "C" fn fangs(
                         (current_z, current_loss, index_into_candidates, n_accepts, clock1, clock2)
                     },
                 )
-                .collect();
+                .collect()
+        });
         if timer.echo() {
             r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
         }
