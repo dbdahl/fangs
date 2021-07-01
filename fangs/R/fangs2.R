@@ -18,7 +18,7 @@
 #'   bits should be proposed to be flipped.
 #' @param probFlip At least one bit it flipped in each proposal.  This argument
 #'   provides the probability of the binomial distribution when deciding how
-#'   many more bits should be proposed to be flipped.
+#'   many more bits should be proposed to be flipped. WAHT IF NULL?
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous runs at any given time. A value of zero indicates to use all
 #'   cores on the system.
@@ -41,5 +41,5 @@
 fangs2 <- function(Zs, nProposals=100, maxNFeatures=0, nSamples=length(Zs), nBest=1, k=0, probFlip=NULL, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
   result <- .Kall(.fangs, Zs, nProposals, maxNFeatures, nSamples, nBest, k, probFlip, nCores)
-  c(result, nBest=nBest, k=k, probFlip=probFlip, totalIter=maxIter)
+  c(result, nProposals=nProposals, maxNFeatures=maxNFeatures, nSamples=nSamples, nBest=nBest, k=k, probFlip=probFlip)
 }

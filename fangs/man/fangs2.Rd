@@ -37,7 +37,7 @@ bits should be proposed to be flipped.}
 
 \item{probFlip}{At least one bit it flipped in each proposal.  This argument
 provides the probability of the binomial distribution when deciding how
-many more bits should be proposed to be flipped.}
+many more bits should be proposed to be flipped. WAHT IF NULL?}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous runs at any given time. A value of zero indicates to use all
