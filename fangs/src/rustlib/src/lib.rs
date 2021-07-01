@@ -31,7 +31,7 @@ extern "C" fn fangs(
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         let n_samples = (n_samples.as_integer().max(1) as usize).min(n_samples_in_all);
         let n_best = (n_best.as_integer().max(1) as usize).min(n_samples);
-        let k = k.as_integer().max(1) as u64;
+        let k = k.as_integer().max(0) as u64;
         let n_iterations = n_iterations.as_integer().max(0) as usize;
         let n_cores = n_cores.as_integer().max(0) as usize;
         let pool = rayon::ThreadPoolBuilder::new()
@@ -46,7 +46,7 @@ extern "C" fn fangs(
         let mut views = Vec::with_capacity(n_samples);
         let mut mean_density = 0.0;
         let mut max_features = 0;
-        let dynamic_prob_flip = prob_flip.is_nil();
+        let dynamic_prob_flip = k > 0 && prob_flip.is_nil();
         timer.stamp("Parsed parameters.");
         for i in 0..n_samples_in_all {
             let o = samples.get_list_element(i as isize);
@@ -119,17 +119,18 @@ extern "C" fn fangs(
                         }
                         let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
                         if new_loss < current_loss {
-                            if timer.echo {
-                                println!(
-                                    "Found improvement for candidate {} by flipping {} bit{} at iteration {}.",
-                                    index_into_candidates,
-                                    n_to_flip,
-                                    if n_to_flip == 1 { "" } else { "s" },
-                                iteration_counter
-                                );
-                            };
                             n_accepts += 1;
                             current_loss = new_loss;
+                            if timer.echo {
+                                println!(
+                                    "Candidate {} improved to {} by flipping {} bit{} at iteration {}.",
+                                    index_into_candidates,
+                                current_loss,
+                                    n_to_flip,
+                                    if n_to_flip == 1 { "" } else { "s" },
+                                    iteration_counter
+                                );
+                            };
                         } else {
                             for (index, value) in restoration_table {
                                 current_z[index] = value;
@@ -146,8 +147,10 @@ extern "C" fn fangs(
         if timer.echo {
             r::print(
                 format!(
-                    "Best result came from candidate {} after {} accepted proposals.\n",
-                    index_into_candidates, n_accepts
+                    "Best result came from candidate {} after {} accepted proposal{}.\n",
+                    index_into_candidates,
+                    n_accepts,
+                    if n_accepts == 1 { "" } else { "s" }
                 )
                 .as_str(),
             )
@@ -327,7 +330,7 @@ impl DbdTimer {
                 .duration_since(self.start)
                 .expect("Time went backwards")
                 .as_secs_f64();
-            r::print(format!("{:>12.6} {:>12.6} : {}\n", total, lapse, msg).as_str());
+            r::print(format!("{:>12.6}s {:>12.6}s : {}\n", total, lapse, msg).as_str());
         }
         self.latest = now;
     }
