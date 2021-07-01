@@ -1,4 +1,5 @@
 mod registration;
+mod timers;
 
 use lapjv::{cost, lapjv, Matrix};
 use munkres::{solve_assignment, WeightMatrix};
@@ -12,6 +13,7 @@ use rand_distr::{Binomial, Distribution};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use roxido::*;
+use timers::{EchoTimer, TicToc};
 
 #[no_mangle]
 extern "C" fn fangs(
@@ -25,7 +27,7 @@ extern "C" fn fangs(
     n_cores: SEXP,
 ) -> SEXP {
     panic_to_error!({
-        let mut timer = DbdTimer::new();
+        let mut timer = EchoTimer::new();
         let n_samples_in_all = samples.length_usize();
         if n_samples_in_all < 1 {
             return r::error("Number of samples must be at least one.");
@@ -50,7 +52,9 @@ extern "C" fn fangs(
         let mut max_n_features_observed = 0;
         let dynamic_prob_flip = k > 0 && prob_flip.is_nil();
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
-        timer.stamp("Parsed parameters.");
+        if timer.echo() {
+            r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str())
+        }
         for i in 0..n_samples_in_all {
             let o = samples.get_list_element(i as isize);
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
@@ -71,7 +75,9 @@ extern "C" fn fangs(
         } else {
             prob_flip.as_double().min(1.0).max(0.0)
         };
-        timer.stamp("Made views.");
+        if timer.echo() {
+            r::print(timer.stamp("Made views.\n").unwrap().as_str())
+        }
         let selected_views_with_rngs: Vec<_> =
             rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
                 .into_iter()
@@ -82,7 +88,9 @@ extern "C" fn fangs(
                     (i as usize, new_rng)
                 })
                 .collect();
-        timer.stamp("Selected views.");
+        if timer.echo() {
+            r::print(timer.stamp("Selected views.\n").unwrap().as_str())
+        }
         let mut candidates: Vec<_> = pool.install(|| {
             selected_views_with_rngs
                 .into_par_iter()
@@ -106,10 +114,19 @@ extern "C" fn fangs(
         });
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         candidates.truncate(n_best);
-        timer.stamp("Computed expected loss for candidate Zs.");
+        if timer.echo() {
+            r::print(
+                timer
+                    .stamp("Computed expected loss for candidates.\n")
+                    .unwrap()
+                    .as_str(),
+            )
+        }
         let mut bests: Vec<_> = candidates.into_par_iter().enumerate()
                 .map(
                     |(index_into_candidates, (mut current_z, mut current_loss, mut rng))| {
+                        let mut clock1 = TicToc::new();
+                        let mut clock2 = TicToc::new();
                         let n_features = current_z.ncols();
                         let binomial = Binomial::new(k, prob_flip).unwrap();
                         let total_length = n_items * n_features;
@@ -130,11 +147,16 @@ extern "C" fn fangs(
                                 restoration_table.push((index, current_bit));
                                 current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
                             }
-                            let new_loss = compute_expected_loss_from_views(current_z.view(), &views);
+                            let new_loss = if timer.echo() {
+                                compute_expected_loss_from_views_timed(current_z.view(), &views, &mut clock1, &mut clock2)
+                            } else {
+                                compute_expected_loss_from_views(current_z.view(), &views)
+                            };
                             if new_loss < current_loss {
                                 n_accepts += 1;
                                 current_loss = new_loss;
-                                if timer.echo {
+                                if timer.echo() {
+                                    // R is not thread-safe, so I cannot call r::print() here.
                                     println!(
                                         "Candidate {} improved to {} by flipping {} bit{} at iteration {}.",
                                         index_into_candidates,
@@ -142,25 +164,31 @@ extern "C" fn fangs(
                                         n_to_flip,
                                         if n_to_flip == 1 { "" } else { "s" },
                                         iteration_counter
-                                    );
-                                };
+                                    )
+                                }
                             } else {
                                 for (index, value) in restoration_table {
                                     current_z[index] = value;
                                 }
                             }
                         }
-                        (current_z, current_loss, index_into_candidates, n_accepts)
+
+                        (current_z, current_loss, index_into_candidates, n_accepts, clock1, clock2)
                     },
                 )
                 .collect();
-        timer.stamp("Sweetened bests.");
+        if timer.echo() {
+            r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
+        }
         bests.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let (best_z, best_loss, index_into_candidates, n_accepts) = bests.swap_remove(0);
-        if timer.echo {
+        let (best_z, best_loss, index_into_candidates, n_accepts, clock1, clock2) =
+            bests.swap_remove(0);
+        if timer.echo() {
             r::print(
                 format!(
-                    "Best result came from candidate {} after {} accepted proposal{}.\n",
+                    "Clock 1 measured {}s, Clock 2 measured {}s.\nBest result is {} from candidate {} after {} accepted proposal{}.\n",
+                    clock1.as_secs_f64(), clock2.as_secs_f64(),
+                    best_loss,
                     index_into_candidates,
                     n_accepts,
                     if n_accepts == 1 { "" } else { "s" }
@@ -192,7 +220,9 @@ extern "C" fn fangs(
             ("seconds", r::double_scalar(timer.total_as_secs_f64())),
         ]);
         r::unprotect(2);
-        timer.stamp("Finalized results.");
+        if timer.echo() {
+            r::print(timer.stamp("Finalized results.\n").unwrap().as_str())
+        }
         list
     })
 }
@@ -261,6 +291,18 @@ fn compute_expected_loss_from_views(z: ArrayView2<f64>, samples: &Vec<ArrayView2
     sum / (samples.len() as f64)
 }
 
+fn compute_expected_loss_from_views_timed(
+    z: ArrayView2<f64>,
+    samples: &Vec<ArrayView2<f64>>,
+    clock1: &mut TicToc,
+    clock2: &mut TicToc,
+) -> f64 {
+    let sum = samples.iter().fold(0.0, |acc, zz| {
+        acc + compute_loss_from_views_timed(z, *zz, clock1, clock2)
+    });
+    sum / (samples.len() as f64)
+}
+
 fn view_integer(z: SEXP) -> ArrayView2<'static, i32> {
     unsafe {
         ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::INTEGER(z))
@@ -320,48 +362,52 @@ fn compute_loss_from_views<A: Clone + Zero + PartialEq>(
     }
 }
 
-#[allow(dead_code)]
-struct DbdTimer {
-    start: std::time::SystemTime,
-    latest: std::time::SystemTime,
-    echo: bool,
-}
-
-#[allow(dead_code)]
-impl DbdTimer {
-    fn new() -> Self {
-        let start = std::time::SystemTime::now();
-        let echo = match std::env::var("DBD_ECHO") {
-            Ok(x) if x == "TRUE" || x == "true" => true,
-            _ => false,
-        };
-        DbdTimer {
-            start,
-            latest: start,
-            echo,
+fn compute_loss_from_views_timed<A: Clone + Zero + PartialEq>(
+    y1: ArrayView2<A>,
+    y2: ArrayView2<A>,
+    clock1: &mut TicToc,
+    clock2: &mut TicToc,
+) -> f64 {
+    clock1.tic();
+    let k1 = y1.ncols();
+    let k2 = y2.ncols();
+    let k = k1.max(k2);
+    if k == 0 {
+        return 0.0;
+    }
+    let mut vec = Vec::with_capacity(k * k);
+    let zero = Array1::zeros(y1.nrows());
+    let zero_view = zero.view();
+    for i1 in 0..k {
+        let x1 = if i1 >= k1 { zero_view } else { y1.column(i1) };
+        for i2 in 0..k {
+            let x2 = if i2 >= k2 { zero_view } else { y2.column(i2) };
+            vec.push(
+                Zip::from(&x1)
+                    .and(&x2)
+                    .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 }),
+            );
         }
     }
-
-    fn stamp(&mut self, msg: &str) {
-        let now = std::time::SystemTime::now();
-        if self.echo {
-            let lapse = now
-                .duration_since(self.latest)
-                .expect("Time went backwards")
-                .as_secs_f64();
-            let total = now
-                .duration_since(self.start)
-                .expect("Time went backwards")
-                .as_secs_f64();
-            r::print(format!("{:>12.6}s {:>12.6}s : {}\n", total, lapse, msg).as_str());
-        }
-        self.latest = now;
-    }
-
-    fn total_as_secs_f64(&self) -> f64 {
-        let now = std::time::SystemTime::now();
-        now.duration_since(self.start)
-            .expect("Time went backwards")
-            .as_secs_f64()
-    }
+    clock1.toc();
+    clock2.tic();
+    let old_crate = match std::env::var("DBD_OLD_CRATE") {
+        Ok(x) if x == "TRUE" || x == "true" => true,
+        _ => false,
+    };
+    let result = if old_crate {
+        let mut w = WeightMatrix::from_row_vec(k, vec.clone());
+        let solution = solve_assignment(&mut w);
+        let w = unsafe { Array2::from_shape_vec_unchecked((k, k), vec) };
+        solution
+            .unwrap()
+            .into_iter()
+            .fold(0.0, |acc, pos| acc + w[[pos.row, pos.column]])
+    } else {
+        let w = unsafe { Matrix::from_shape_vec_unchecked((k, k), vec) };
+        let result = lapjv(&w).unwrap();
+        cost(&w, &result.0)
+    };
+    clock2.toc();
+    result
 }

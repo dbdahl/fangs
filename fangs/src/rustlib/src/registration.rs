@@ -76,4 +76,3 @@ extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
         rbindings::R_forceSymbols(info, 1);
     }
 }
-
