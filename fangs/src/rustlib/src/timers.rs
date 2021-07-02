@@ -1,4 +1,38 @@
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[allow(dead_code)]
+pub struct PeriodicTimer {
+    latest: SystemTime,
+    threshold_in_secs: f64,
+}
+
+#[allow(dead_code)]
+impl PeriodicTimer {
+    pub fn new(threshold_in_secs: f64) -> Self {
+        let latest = UNIX_EPOCH;
+        PeriodicTimer {
+            latest,
+            threshold_in_secs,
+        }
+    }
+    pub fn maybe(&mut self, condition: bool, mut x: impl FnMut() -> ()) {
+        let now = SystemTime::now();
+        if condition {
+            x();
+            self.latest = now;
+        } else {
+            if now
+                .duration_since(self.latest)
+                .unwrap_or(Duration::ZERO)
+                .as_secs_f64()
+                > self.threshold_in_secs
+            {
+                x();
+                self.latest = now;
+            }
+        }
+    }
+}
 
 #[allow(dead_code)]
 pub struct EchoTimer {
@@ -68,7 +102,7 @@ pub struct TicToc {
 impl TicToc {
     pub fn new() -> Self {
         Self {
-            start: std::time::UNIX_EPOCH,
+            start: UNIX_EPOCH,
             lapse: 0,
             running: false,
         }

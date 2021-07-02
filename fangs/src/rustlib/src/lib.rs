@@ -8,7 +8,7 @@ use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use rayon::ThreadPool;
 use roxido::*;
-use timers::EchoTimer;
+use timers::{EchoTimer, PeriodicTimer};
 
 #[no_mangle]
 extern "C" fn fangs(
@@ -55,7 +55,7 @@ extern "C" fn fangs(
             views.push(view)
         }
         if timer.echo() {
-            r::print(timer.stamp("Made views.\n").unwrap().as_str())
+            r::print(timer.stamp("Made data structures.\n").unwrap().as_str())
         }
         let selected_candidates_with_rngs: Vec<_> =
             rand::seq::index::sample(&mut rng, n_samples, n_candidates)
@@ -89,8 +89,6 @@ extern "C" fn fangs(
                 (z, loss, rng)
             })
             .collect();
-        candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        candidates.truncate(n_bests);
         if timer.echo() {
             r::print(
                 timer
@@ -99,46 +97,61 @@ extern "C" fn fangs(
                     .as_str(),
             )
         }
+        candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
+        candidates.truncate(n_bests);
         let mut bests: Vec<_> = candidates
             .into_iter()
             .enumerate()
-            .map(|(candidate_number, (mut z, mut loss, mut rng))| {
-                let mut weight_matrices = make_weight_matrices(z.view(), &views);
-                let n_features = z.ncols();
-                let total_length = n_items * n_features;
-                let mut n_accepts = 0;
-                for iteration_counter in 0..n_iterations {
-                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                        [index / ncols, index % ncols]
-                    }
-                    let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                    flip_bit(&mut z, &mut weight_matrices, index, &views);
-                    let new_loss = expected_cost_from_weight_matrices(&weight_matrices, &pool);
-                    if new_loss < loss {
-                        n_accepts += 1;
-                        loss = new_loss;
-                        if timer.echo() {
-                            r::print(
-                                format!(
-                                    "Candidate {} improved to {} at iteration {}.\n",
-                                    candidate_number, loss, iteration_counter
-                                )
-                                .as_str(),
-                            )
-                        }
-                    } else {
-                        flip_bit(&mut z, &mut weight_matrices, index, &views);
-                    }
-                    r::check_user_interrupt();
-                }
-                (z, loss, candidate_number, n_accepts)
+            .map(|(id, (z, loss, rng))| {
+                let weight_matrices = make_weight_matrices(z.view(), &views, &pool);
+                let n_accepts = 0;
+                let when = 1;
+                (z, weight_matrices, loss, id, n_accepts, when, rng)
             })
             .collect();
+        let mut period_timer = PeriodicTimer::new(1.0);
+        for iteration_counter in 1..=n_iterations {
+            for (z, weight_matrices, loss, _, n_accepts, when, rng) in bests.iter_mut() {
+                let n_features = z.ncols();
+                let total_length = n_items * n_features;
+                fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                    [index / ncols, index % ncols]
+                }
+                let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                flip_bit(z, weight_matrices, index, &views);
+                let new_loss = expected_cost_from_weight_matrices(&weight_matrices, &pool);
+                if new_loss < *loss {
+                    *n_accepts += 1;
+                    *when = iteration_counter;
+                    *loss = new_loss;
+                } else {
+                    flip_bit(z, weight_matrices, index, &views);
+                }
+                r::check_user_interrupt(); // Maybe not needed, since we can interrupt at the printing.
+            }
+            period_timer.maybe(iteration_counter == n_iterations, || {
+                bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
+                let best = bests.first().unwrap();
+                r::print(
+                    format!(
+                        "\rIteration {}... Since iteration {}, expected loss is {:.4} from candidate {}     ",
+                        iteration_counter,
+                        best.5,
+                        best.2,
+                        best.3 + 1,
+                    )
+                    .as_str(),
+                );
+                r::flush_console();
+            });
+        }
+        r::print("\n");
+        r::flush_console();
         if timer.echo() {
             r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
         }
-        bests.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let (best_z, best_loss, candidate_number, n_accepts) = bests.swap_remove(0);
+        bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
+        let (best_z, _, best_loss, candidate_number, n_accepts, when, _) = bests.swap_remove(0);
         if timer.echo() {
             r::print(
                 format!(
@@ -229,11 +242,17 @@ fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::REAL(z)) }
 }
 
-fn make_weight_matrices(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> Vec<Array2<f64>> {
-    samples
-        .iter()
-        .map(|zz| make_weight_matrix(z, *zz).unwrap())
-        .collect()
+fn make_weight_matrices(
+    z: ArrayView2<f64>,
+    samples: &Vec<ArrayView2<f64>>,
+    pool: &ThreadPool,
+) -> Vec<Array2<f64>> {
+    pool.install(|| {
+        samples
+            .par_iter()
+            .map(|zz| make_weight_matrix(z, *zz).unwrap())
+            .collect()
+    })
 }
 
 fn flip_bit(
