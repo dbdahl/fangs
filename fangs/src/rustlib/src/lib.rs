@@ -134,11 +134,12 @@ extern "C" fn fangs(
                 let best = bests.first().unwrap();
                 r::print(
                     format!(
-                        "\rIteration {}... Since iteration {}, expected loss is {:.4} from candidate {}     ",
+                        "\rIter. {}: Since {}, loss is {:.4} from candidate {} with {} accepts ",
                         iteration_counter,
                         best.5,
                         best.2,
                         best.3 + 1,
+                        best.4,
                     )
                     .as_str(),
                 );
@@ -151,7 +152,7 @@ extern "C" fn fangs(
             r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
         }
         bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
-        let (best_z, _, best_loss, candidate_number, n_accepts, when, _) = bests.swap_remove(0);
+        let (best_z, _, best_loss, candidate_number, n_accepts, _, _) = bests.swap_remove(0);
         if timer.echo() {
             r::print(
                 format!(
