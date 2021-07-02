@@ -245,21 +245,24 @@ fn update_weight_matrices(
     column: usize,
     samples: &Vec<ArrayView2<f64>>,
 ) {
-    let zero = Array1::zeros(z.nrows());
-    let zero_view = zero.view();
     let x1 = z.column(column);
-    samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
+    let x1sum = x1
+        .iter()
+        .fold(0.0, |acc, a| acc + if *a != 0.0 { 1.0 } else { 0.0 });
+    let result = samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
         for i2 in 0..w.ncols() {
-            let x2 = if i2 >= zz.ncols() {
-                zero_view
+            w[[column, i2]] = if i2 >= zz.ncols() {
+                x1sum
             } else {
-                zz.column(i2)
-            };
-            w[[column, i2]] = Zip::from(&x1)
-                .and(&x2)
-                .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 });
+                let x2 = zz.column(i2);
+                Zip::from(&x1)
+                    .and(&x2)
+                    .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 })
+            }
         }
-    })
+    });
+    // assert_eq!( expected_cost(&make_weight_matrices(z.view(), samples)), expected_cost(matrices) );
+    result
 }
 
 fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2<f64>> {
