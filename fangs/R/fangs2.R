@@ -16,6 +16,7 @@
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous runs at any given time. A value of zero indicates to use all
 #'   cores on the system.
+#' @param quiet Suppress intermediate status reporting?
 #'
 #' @return A list of the following elements.  *This needs to be updated*:
 #' \itemize{
@@ -32,8 +33,8 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nIterations=100, maxNFeatures=0, nCandidates=length(Zs), nBests=1, nCores=0) {
+fangs <- function(Zs, nIterations=100, maxNFeatures=0, nCandidates=length(Zs), nBests=1, nCores=0, quiet=FALSE) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nCandidates, nBests, nCores)
+  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nCandidates, nBests, nCores, quiet)
   c(result, nIterations=nIterations, maxNFeatures=maxNFeatures, nCandidates=nCandidates, nBests=nBests)
 }

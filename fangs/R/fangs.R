@@ -24,7 +24,7 @@
 #' @examples
 #' 1 + 3
 #'
-fangs <- function(Zs, nBest=1, k=1, prob1=-1, maxIter) {
+fangs_old <- function(Zs, nBest=1, k=1, prob1=-1, maxIter) {
   nItems <- nrow(Zs[[1]])
   nSamps <- length(Zs)
 

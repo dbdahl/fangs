@@ -18,6 +18,7 @@ extern "C" fn fangs(
     n_candidates: SEXP,
     n_bests: SEXP,
     n_cores: SEXP,
+    quiet: SEXP,
 ) -> SEXP {
     panic_to_error!({
         let mut timer = EchoTimer::new();
@@ -34,6 +35,7 @@ extern "C" fn fangs(
             .num_threads(n_cores)
             .build()
             .unwrap();
+        let quiet = quiet.as_bool();
         let o = samples.get_list_element(0);
         if !o.is_double() || !o.is_matrix() {
             return r::error("All elements of 'samples' must be integer matrices.");
@@ -133,11 +135,12 @@ extern "C" fn fangs(
                 }
                 r::check_user_interrupt(); // Maybe not needed, since we can interrupt at the printing.
             }
-            period_timer.maybe(iteration_counter == n_iterations, || {
-                bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
-                let best = bests.first().unwrap();
-                r::print(
-                    format!(
+            if !quiet {
+                period_timer.maybe(iteration_counter == n_iterations, || {
+                    bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
+                    let best = bests.first().unwrap();
+                    r::print(
+                        format!(
                         "\rIter. {}: Since {}, loss is {:.4} from candidate {} with {} accepts ",
                         iteration_counter,
                         best.5,
@@ -145,13 +148,16 @@ extern "C" fn fangs(
                         best.3 + 1,
                         best.4,
                     )
-                    .as_str(),
-                );
-                r::flush_console();
-            });
+                        .as_str(),
+                    );
+                    r::flush_console();
+                });
+            }
         }
-        r::print("\n");
-        r::flush_console();
+        if !quiet {
+            r::print("\n");
+            r::flush_console();
+        }
         if timer.echo() {
             r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str());
             r::flush_console();
