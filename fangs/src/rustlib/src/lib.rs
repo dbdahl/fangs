@@ -14,19 +14,19 @@ extern "C" fn fangs(
     samples: SEXP,
     n_iterations: SEXP,
     max_n_features: SEXP,
-    n_samples: SEXP,
-    n_best: SEXP,
+    n_candidates: SEXP,
+    n_bests: SEXP,
     n_cores: SEXP,
 ) -> SEXP {
     panic_to_error!({
         let mut timer = EchoTimer::new();
-        let n_samples_in_all = samples.length_usize();
-        if n_samples_in_all < 1 {
+        let n_samples = samples.length_usize();
+        if n_samples < 1 {
             return r::error("Number of samples must be at least one.");
         }
         let max_n_features = max_n_features.as_integer().max(0) as usize;
-        let n_samples = (n_samples.as_integer().max(1) as usize).min(n_samples_in_all);
-        let n_best = (n_best.as_integer().max(1) as usize).min(n_samples);
+        let n_candidates = (n_candidates.as_integer().max(1) as usize).min(n_samples);
+        let n_bests = (n_bests.as_integer().max(1) as usize).min(n_candidates);
         let n_iterations = n_iterations.as_integer().max(0) as usize;
         let n_cores = n_cores.as_integer().max(0) as usize;
         let pool = rayon::ThreadPoolBuilder::new()
@@ -43,8 +43,8 @@ extern "C" fn fangs(
         if timer.echo() {
             r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str())
         }
-        let mut views = Vec::with_capacity(n_samples_in_all);
-        for i in 0..n_samples_in_all {
+        let mut views = Vec::with_capacity(n_samples);
+        for i in 0..n_samples {
             let o = samples.get_list_element(i as isize);
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
                 return r::error("All elements of 'samples' must be double matrices with a consistent number of rows.");
@@ -56,8 +56,8 @@ extern "C" fn fangs(
         if timer.echo() {
             r::print(timer.stamp("Made views.\n").unwrap().as_str())
         }
-        let selected_views_with_rngs: Vec<_> =
-            rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
+        let selected_candidates_with_rngs: Vec<_> =
+            rand::seq::index::sample(&mut rng, n_samples, n_candidates)
                 .into_iter()
                 .map(|index| {
                     let mut seed = [0_u8; 16];
@@ -67,10 +67,10 @@ extern "C" fn fangs(
                 })
                 .collect();
         if timer.echo() {
-            r::print(timer.stamp("Selected views.\n").unwrap().as_str())
+            r::print(timer.stamp("Selected candidates.\n").unwrap().as_str())
         }
         let mut candidates: Vec<_> = pool.install(|| {
-            selected_views_with_rngs
+            selected_candidates_with_rngs
                 .into_par_iter()
                 .map(|(view, mut rng)| {
                     let n_features_in_view = view.ncols();
@@ -90,7 +90,7 @@ extern "C" fn fangs(
                 .collect()
         });
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        candidates.truncate(n_best);
+        candidates.truncate(n_bests);
         if timer.echo() {
             r::print(
                 timer

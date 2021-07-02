@@ -8,8 +8,8 @@ fangs2(
   Zs,
   nIterations = 100,
   maxNFeatures = 0,
-  nSamples = length(Zs),
-  nBest = 1,
+  nCandidates = length(Zs),
+  nBests = 1,
   nCores = 0
 )
 }
@@ -23,10 +23,10 @@ the optimization algorithm, which has important implications for the
 interpretability of the resulting feature allocation. If the supplied value
 is zero, there is no constraint.}
 
-\item{nSamples}{The number of feature allocations from the provided samples
+\item{nCandidates}{The number of feature allocations from the provided samples
 in \code{Zs} to use to seed the algorithm.}
 
-\item{nBest}{Among \code{nSamples} feature allocations, how many should be
+\item{nBests}{Among \code{nCandidates} feature allocations, how many should be
 sweetened when searching for the best estimate.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of

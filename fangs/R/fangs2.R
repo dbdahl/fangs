@@ -9,9 +9,9 @@
 #'   the optimization algorithm, which has important implications for the
 #'   interpretability of the resulting feature allocation. If the supplied value
 #'   is zero, there is no constraint.
-#' @param nSamples The number of feature allocations from the provided samples
+#' @param nCandidates The number of feature allocations from the provided samples
 #'   in \code{Zs} to use to seed the algorithm.
-#' @param nBest Among \code{nSamples} feature allocations, how many should be
+#' @param nBests Among \code{nCandidates} feature allocations, how many should be
 #'   sweetened when searching for the best estimate.
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous runs at any given time. A value of zero indicates to use all
@@ -32,8 +32,8 @@
 #' @examples
 #' 1 + 3
 #'
-fangs2 <- function(Zs, nIterations=100, maxNFeatures=0, nSamples=length(Zs), nBest=1, nCores=0) {
+fangs2 <- function(Zs, nIterations=100, maxNFeatures=0, nCandidates=length(Zs), nBests=1, nCores=0) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nSamples, nBest, nCores)
-  c(result, nIterations=nIterations, maxNFeatures=maxNFeatures, nSamples=nSamples, nBest=nBest)
+  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nCandidates, nBests, nCores)
+  c(result, nIterations=nIterations, maxNFeatures=maxNFeatures, nCandidates=nCandidates, nBests=nBests)
 }
