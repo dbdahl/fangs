@@ -114,9 +114,7 @@ extern "C" fn fangs(
                             [index / ncols, index % ncols]
                         }
                         let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                        let current_bit = z[index];
-                        z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
-                        update_weight_matrices(&mut weight_matrices, &z, index[1], &views);
+                        flip_bit(&mut z, &mut weight_matrices, index, &views);
                         let new_loss = expected_cost(&weight_matrices);
                         if new_loss < loss {
                             n_accepts += 1;
@@ -129,8 +127,7 @@ extern "C" fn fangs(
                                 )
                             }
                         } else {
-                            z[index] = current_bit;
-                            update_weight_matrices(&mut weight_matrices, &z, index[1], &views);
+                            flip_bit(&mut z, &mut weight_matrices, index, &views);
                         }
                     }
                     (z, loss, candidate_number, n_accepts)
@@ -239,26 +236,22 @@ fn make_weight_matrices(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> V
         .collect()
 }
 
-fn update_weight_matrices(
+fn flip_bit(
+    z: &mut Array2<f64>,
     matrices: &mut Vec<Array2<f64>>,
-    z: &Array2<f64>,
-    column: usize,
+    index: [usize; 2],
     samples: &Vec<ArrayView2<f64>>,
 ) {
-    let x1 = z.column(column);
-    let x1sum = x1
-        .iter()
-        .fold(0.0, |acc, a| acc + if *a != 0.0 { 1.0 } else { 0.0 });
+    let old_bit = z[index];
+    z[index] = if old_bit == 0.0 { 1.0 } else { 0.0 };
     let result = samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
         for i2 in 0..w.ncols() {
-            w[[column, i2]] = if i2 >= zz.ncols() {
-                x1sum
+            let bit_in_sample = if i2 >= zz.ncols() {
+                0.0
             } else {
-                let x2 = zz.column(i2);
-                Zip::from(&x1)
-                    .and(&x2)
-                    .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 })
-            }
+                zz[[index[0], i2]]
+            };
+            w[[index[1], i2]] += if old_bit != bit_in_sample { -1.0 } else { 1.0 };
         }
     });
     // assert_eq!( expected_cost(&make_weight_matrices(z.view(), samples)), expected_cost(matrices) );
