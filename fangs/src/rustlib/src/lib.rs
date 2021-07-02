@@ -85,6 +85,7 @@ extern "C" fn fangs(
                     view[[i, selected_columns[j]]]
                 });
                 let loss = expected_cost_from_samples(z.view(), &views, &pool);
+                r::check_user_interrupt();
                 (z, loss, rng)
             })
             .collect();
@@ -128,6 +129,7 @@ extern "C" fn fangs(
                     } else {
                         flip_bit(&mut z, &mut weight_matrices, index, &views);
                     }
+                    r::check_user_interrupt();
                 }
                 (z, loss, candidate_number, n_accepts)
             })
