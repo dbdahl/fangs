@@ -194,7 +194,10 @@ extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP) -> SEXP {
             let z = make_view(z);
             for i in 0..n_samples {
                 let o = samples.get_list_element(i as isize);
-                sum += compute_loss_from_views(z, make_view(o))
+                match make_weight_matrix(z, make_view(o)) {
+                    Some(weight_matrix) => sum += cost(&weight_matrix),
+                    None => {}
+                }
             }
         } else {
             return r::error("Unsupported type for 'Z'.");
@@ -207,7 +210,10 @@ extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP) -> SEXP {
 extern "C" fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
     panic_to_error!({
         let loss = if z1.is_double() && z2.is_double() {
-            compute_loss_from_views(make_view(z1), make_view(z2))
+            match make_weight_matrix(make_view(z1), make_view(z2)) {
+                Some(weight_matrix) => cost(&weight_matrix),
+                None => 0.0,
+            }
         } else {
             return r::error("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
         };
@@ -224,13 +230,6 @@ fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item 
 
 fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::REAL(z)) }
-}
-
-fn compute_loss_from_views(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> f64 {
-    match make_weight_matrix(y1, y2) {
-        Some(w) => cost(&w),
-        None => 0.0,
-    }
 }
 
 fn make_weight_matrices(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> Vec<Array2<f64>> {
