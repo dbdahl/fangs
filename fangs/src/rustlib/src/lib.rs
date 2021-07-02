@@ -84,8 +84,7 @@ extern "C" fn fangs(
                     let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
                         view[[i, selected_columns[j]]]
                     });
-                    let weight_matrices = make_weight_matrices(z.view(), &views);
-                    let loss = expected_cost(&weight_matrices);
+                    let loss = expected_cost_from_samples(z.view(), &views);
                     (z, loss, rng)
                 })
                 .collect()
@@ -115,7 +114,7 @@ extern "C" fn fangs(
                         }
                         let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
                         flip_bit(&mut z, &mut weight_matrices, index, &views);
-                        let new_loss = expected_cost(&weight_matrices);
+                        let new_loss = expected_cost_from_weight_matrices(&weight_matrices);
                         if new_loss < loss {
                             n_accepts += 1;
                             loss = new_loss;
@@ -282,7 +281,17 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2
     Some(unsafe { Array::from_shape_vec_unchecked((k, k), vec) })
 }
 
-fn expected_cost(weight_matrices: &Vec<Array2<f64>>) -> f64 {
+fn expected_cost_from_samples(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> f64 {
+    let n_samples = samples.len();
+    samples.iter().fold(0.0, |acc, zz| {
+        acc + match make_weight_matrix(z, *zz) {
+            Some(weight_matrix) => cost(&weight_matrix),
+            None => 0.0,
+        }
+    }) / (n_samples as f64)
+}
+
+fn expected_cost_from_weight_matrices(weight_matrices: &Vec<Array2<f64>>) -> f64 {
     weight_matrices.iter().fold(0.0, |acc, w| acc + cost(w)) / (weight_matrices.len() as f64)
 }
 
