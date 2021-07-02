@@ -6,6 +6,7 @@ use ndarray::{Array1, Zip};
 use rand::{Rng, RngCore, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
+use rayon::ThreadPool;
 use roxido::*;
 use timers::EchoTimer;
 
@@ -69,26 +70,24 @@ extern "C" fn fangs(
         if timer.echo() {
             r::print(timer.stamp("Selected candidates.\n").unwrap().as_str())
         }
-        let mut candidates: Vec<_> = pool.install(|| {
-            selected_candidates_with_rngs
-                .into_par_iter()
-                .map(|(view, mut rng)| {
-                    let n_features_in_view = view.ncols();
-                    let n_features = if max_n_features == 0 {
-                        n_features_in_view
-                    } else {
-                        max_n_features.min(n_features_in_view)
-                    };
-                    let selected_columns: Vec<_> =
-                        rand::seq::index::sample(&mut rng, view.ncols(), n_features).into_vec();
-                    let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
-                        view[[i, selected_columns[j]]]
-                    });
-                    let loss = expected_cost_from_samples(z.view(), &views);
-                    (z, loss, rng)
-                })
-                .collect()
-        });
+        let mut candidates: Vec<_> = selected_candidates_with_rngs
+            .into_iter()
+            .map(|(view, mut rng)| {
+                let n_features_in_view = view.ncols();
+                let n_features = if max_n_features == 0 {
+                    n_features_in_view
+                } else {
+                    max_n_features.min(n_features_in_view)
+                };
+                let selected_columns: Vec<_> =
+                    rand::seq::index::sample(&mut rng, view.ncols(), n_features).into_vec();
+                let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
+                    view[[i, selected_columns[j]]]
+                });
+                let loss = expected_cost_from_samples(z.view(), &views, &pool);
+                (z, loss, rng)
+            })
+            .collect();
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         candidates.truncate(n_bests);
         if timer.echo() {
@@ -99,40 +98,40 @@ extern "C" fn fangs(
                     .as_str(),
             )
         }
-        let mut bests: Vec<_> = pool.install(|| {
-            candidates
-                .into_par_iter()
-                .enumerate()
-                .map(|(candidate_number, (mut z, mut loss, mut rng))| {
-                    let mut weight_matrices = make_weight_matrices(z.view(), &views);
-                    let n_features = z.ncols();
-                    let total_length = n_items * n_features;
-                    let mut n_accepts = 0;
-                    for iteration_counter in 0..n_iterations {
-                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                            [index / ncols, index % ncols]
-                        }
-                        let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                        flip_bit(&mut z, &mut weight_matrices, index, &views);
-                        let new_loss = expected_cost_from_weight_matrices(&weight_matrices);
-                        if new_loss < loss {
-                            n_accepts += 1;
-                            loss = new_loss;
-                            if timer.echo() {
-                                // R is not thread-safe, so I cannot call r::print() here.
-                                println!(
-                                    "Candidate {} improved to {} at iteration {}.",
+        let mut bests: Vec<_> = candidates
+            .into_iter()
+            .enumerate()
+            .map(|(candidate_number, (mut z, mut loss, mut rng))| {
+                let mut weight_matrices = make_weight_matrices(z.view(), &views);
+                let n_features = z.ncols();
+                let total_length = n_items * n_features;
+                let mut n_accepts = 0;
+                for iteration_counter in 0..n_iterations {
+                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                        [index / ncols, index % ncols]
+                    }
+                    let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                    flip_bit(&mut z, &mut weight_matrices, index, &views);
+                    let new_loss = expected_cost_from_weight_matrices(&weight_matrices, &pool);
+                    if new_loss < loss {
+                        n_accepts += 1;
+                        loss = new_loss;
+                        if timer.echo() {
+                            r::print(
+                                format!(
+                                    "Candidate {} improved to {} at iteration {}.\n",
                                     candidate_number, loss, iteration_counter
                                 )
-                            }
-                        } else {
-                            flip_bit(&mut z, &mut weight_matrices, index, &views);
+                                .as_str(),
+                            )
                         }
+                    } else {
+                        flip_bit(&mut z, &mut weight_matrices, index, &views);
                     }
-                    (z, loss, candidate_number, n_accepts)
-                })
-                .collect()
-        });
+                }
+                (z, loss, candidate_number, n_accepts)
+            })
+            .collect();
         if timer.echo() {
             r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
         }
@@ -281,18 +280,39 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2
     Some(unsafe { Array::from_shape_vec_unchecked((k, k), vec) })
 }
 
-fn expected_cost_from_samples(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> f64 {
-    let n_samples = samples.len();
-    samples.iter().fold(0.0, |acc, zz| {
-        acc + match make_weight_matrix(z, *zz) {
-            Some(weight_matrix) => cost(&weight_matrix),
-            None => 0.0,
-        }
-    }) / (n_samples as f64)
+fn expected_cost_from_samples(
+    z: ArrayView2<f64>,
+    samples: &Vec<ArrayView2<f64>>,
+    pool: &ThreadPool,
+) -> f64 {
+    pool.install(|| {
+        samples
+            .par_iter()
+            .fold(
+                || 0.0,
+                |acc: f64, zz: &ArrayView2<f64>| {
+                    acc + match make_weight_matrix(z, *zz) {
+                        Some(weight_matrix) => cost(&weight_matrix),
+                        None => 0.0,
+                    }
+                },
+            )
+            .reduce(|| 0.0, |a, b| a + b)
+            / (samples.len() as f64)
+    })
 }
 
-fn expected_cost_from_weight_matrices(weight_matrices: &Vec<Array2<f64>>) -> f64 {
-    weight_matrices.iter().fold(0.0, |acc, w| acc + cost(w)) / (weight_matrices.len() as f64)
+fn expected_cost_from_weight_matrices(
+    weight_matrices: &Vec<Array2<f64>>,
+    pool: &ThreadPool,
+) -> f64 {
+    pool.install(|| {
+        weight_matrices
+            .par_iter()
+            .fold(|| 0.0, |acc: f64, w: &Array2<f64>| acc + cost(w))
+            .reduce(|| 0.0, |a, b| a + b)
+            / (weight_matrices.len() as f64)
+    })
 }
 
 fn cost(weight_matrix: &Array2<f64>) -> f64 {
