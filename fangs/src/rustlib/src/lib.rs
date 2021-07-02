@@ -84,7 +84,7 @@ extern "C" fn fangs(
                 let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
                     view[[i, selected_columns[j]]]
                 });
-                let loss = expected_cost_from_samples(z.view(), &views, &pool);
+                let loss = expected_loss_from_samples(z.view(), &views, &pool);
                 r::check_user_interrupt();
                 (z, loss, rng)
             })
@@ -119,7 +119,7 @@ extern "C" fn fangs(
                 }
                 let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
                 flip_bit(z, weight_matrices, index, &views);
-                let new_loss = expected_cost_from_weight_matrices(&weight_matrices, &pool);
+                let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
                 if new_loss < *loss {
                     *n_accepts += 1;
                     *when = iteration_counter;
@@ -209,7 +209,7 @@ extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SE
         for i in 0..n_samples {
             views.push(make_view(samples.get_list_element(i as isize)));
         }
-        let loss = expected_cost_from_samples(make_view(z), &views, &pool);
+        let loss = expected_loss_from_samples(make_view(z), &views, &pool);
         r::double_scalar(loss)
     })
 }
@@ -219,7 +219,7 @@ extern "C" fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
     panic_to_error!({
         let loss = if z1.is_double() && z2.is_double() {
             match make_weight_matrix(make_view(z1), make_view(z2)) {
-                Some(weight_matrix) => cost(&weight_matrix),
+                Some(weight_matrix) => loss(&weight_matrix),
                 None => 0.0,
             }
         } else {
@@ -271,7 +271,14 @@ fn flip_bit(
             w[[index[1], i2]] += if old_bit != bit_in_sample { -1.0 } else { 1.0 };
         }
     });
-    // assert_eq!( expected_cost(&make_weight_matrices(z.view(), samples)), expected_cost(matrices) );
+    /*
+    // Sanity check, but commented out for speed.
+    let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
+    assert_eq!(
+        expected_loss_from_samples(z.view(), samples, &pool),
+        expected_loss_from_weight_matrices(matrices, &pool)
+    );
+    */
     result
 }
 
@@ -299,7 +306,7 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2
     Some(unsafe { Array::from_shape_vec_unchecked((k, k), vec) })
 }
 
-fn expected_cost_from_samples(
+fn expected_loss_from_samples(
     z: ArrayView2<f64>,
     samples: &Vec<ArrayView2<f64>>,
     pool: &ThreadPool,
@@ -311,7 +318,7 @@ fn expected_cost_from_samples(
                 || 0.0,
                 |acc: f64, zz: &ArrayView2<f64>| {
                     acc + match make_weight_matrix(z, *zz) {
-                        Some(weight_matrix) => cost(&weight_matrix),
+                        Some(weight_matrix) => loss(&weight_matrix),
                         None => 0.0,
                     }
                 },
@@ -321,20 +328,20 @@ fn expected_cost_from_samples(
     })
 }
 
-fn expected_cost_from_weight_matrices(
+fn expected_loss_from_weight_matrices(
     weight_matrices: &Vec<Array2<f64>>,
     pool: &ThreadPool,
 ) -> f64 {
     pool.install(|| {
         weight_matrices
             .par_iter()
-            .fold(|| 0.0, |acc: f64, w: &Array2<f64>| acc + cost(w))
+            .fold(|| 0.0, |acc: f64, w: &Array2<f64>| acc + loss(w))
             .reduce(|| 0.0, |a, b| a + b)
             / (weight_matrices.len() as f64)
     })
 }
 
-fn cost(weight_matrix: &Array2<f64>) -> f64 {
+fn loss(weight_matrix: &Array2<f64>) -> f64 {
     let solution = lapjv::lapjv(weight_matrix).unwrap();
     lapjv::cost(weight_matrix, &solution.0)
 }
