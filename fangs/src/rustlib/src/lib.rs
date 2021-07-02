@@ -42,7 +42,8 @@ extern "C" fn fangs(
         let mut max_n_features_observed = 0;
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         if timer.echo() {
-            r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str())
+            r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str());
+            r::flush_console();
         }
         let mut views = Vec::with_capacity(n_samples);
         for i in 0..n_samples {
@@ -55,7 +56,8 @@ extern "C" fn fangs(
             views.push(view)
         }
         if timer.echo() {
-            r::print(timer.stamp("Made data structures.\n").unwrap().as_str())
+            r::print(timer.stamp("Made data structures.\n").unwrap().as_str());
+            r::flush_console();
         }
         let selected_candidates_with_rngs: Vec<_> =
             rand::seq::index::sample(&mut rng, n_samples, n_candidates)
@@ -68,7 +70,8 @@ extern "C" fn fangs(
                 })
                 .collect();
         if timer.echo() {
-            r::print(timer.stamp("Selected candidates.\n").unwrap().as_str())
+            r::print(timer.stamp("Selected candidates.\n").unwrap().as_str());
+            r::flush_console();
         }
         let mut candidates: Vec<_> = selected_candidates_with_rngs
             .into_iter()
@@ -95,7 +98,8 @@ extern "C" fn fangs(
                     .stamp("Computed expected loss for candidates.\n")
                     .unwrap()
                     .as_str(),
-            )
+            );
+            r::flush_console();
         }
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         candidates.truncate(n_bests);
@@ -149,7 +153,8 @@ extern "C" fn fangs(
         r::print("\n");
         r::flush_console();
         if timer.echo() {
-            r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
+            r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str());
+            r::flush_console();
         }
         bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
         let (best_z, _, best_loss, candidate_number, n_accepts, _, _) = bests.swap_remove(0);
@@ -163,7 +168,8 @@ extern "C" fn fangs(
                     if n_accepts == 1 { "" } else { "s" }
                 )
                 .as_str(),
-            )
+            );
+            r::flush_console();
         }
         let columns_to_keep: Vec<usize> = best_z
             .axis_iter(Axis(1))
@@ -190,7 +196,8 @@ extern "C" fn fangs(
         ]);
         r::unprotect(2);
         if timer.echo() {
-            r::print(timer.stamp("Finalized results.\n").unwrap().as_str())
+            r::print(timer.stamp("Finalized results.\n").unwrap().as_str());
+            r::flush_console();
         }
         list
     })
