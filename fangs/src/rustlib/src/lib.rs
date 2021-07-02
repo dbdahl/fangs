@@ -7,7 +7,7 @@ use rand::{Rng, RngCore, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use roxido::*;
-use timers::{EchoTimer, TicToc};
+use timers::EchoTimer;
 
 #[no_mangle]
 extern "C" fn fangs(
@@ -38,12 +38,12 @@ extern "C" fn fangs(
             return r::error("All elements of 'samples' must be integer matrices.");
         }
         let n_items = o.nrow_usize();
-        let mut views = Vec::with_capacity(n_samples);
         let mut max_n_features_observed = 0;
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         if timer.echo() {
             r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str())
         }
+        let mut views = Vec::with_capacity(n_samples_in_all);
         for i in 0..n_samples_in_all {
             let o = samples.get_list_element(i as isize);
             if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
@@ -59,11 +59,11 @@ extern "C" fn fangs(
         let selected_views_with_rngs: Vec<_> =
             rand::seq::index::sample(&mut rng, n_samples_in_all, n_samples)
                 .into_iter()
-                .map(|i| {
+                .map(|index| {
                     let mut seed = [0_u8; 16];
                     rng.fill_bytes(&mut seed);
                     let new_rng = Pcg64Mcg::from_seed(seed);
-                    (i as usize, new_rng)
+                    (views[index as usize], new_rng)
                 })
                 .collect();
         if timer.echo() {
@@ -72,8 +72,7 @@ extern "C" fn fangs(
         let mut candidates: Vec<_> = pool.install(|| {
             selected_views_with_rngs
                 .into_par_iter()
-                .map(|(index, mut rng)| {
-                    let view = views[index];
+                .map(|(view, mut rng)| {
                     let n_features_in_view = view.ncols();
                     let n_features = if max_n_features == 0 {
                         n_features_in_view
@@ -87,7 +86,7 @@ extern "C" fn fangs(
                     });
                     let weight_matrices = make_weight_matrices(z.view(), &views);
                     let loss = expected_cost(&weight_matrices);
-                    (z, loss, weight_matrices, rng)
+                    (z, loss, rng)
                 })
                 .collect()
         });
@@ -105,73 +104,50 @@ extern "C" fn fangs(
             candidates
                 .into_par_iter()
                 .enumerate()
-                .map(
-                    |(
-                        index_into_candidates,
-                        (mut current_z, mut current_loss, mut weight_matrices, mut rng),
-                    )| {
-                        let mut clock1 = TicToc::new();
-                        let mut clock2 = TicToc::new();
-                        let n_features = current_z.ncols();
-                        let total_length = n_items * n_features;
-                        let mut n_accepts = 0;
-                        for iteration_counter in 0..n_iterations {
-                            fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                                [index / ncols, index % ncols]
-                            }
-                            let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                            let current_bit = current_z[index];
-                            current_z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
-                            let new_loss = if timer.echo() {
-                                compute_expected_loss_from_views_timed(
-                                    current_z.view(),
-                                    &views,
-                                    &mut clock1,
-                                    &mut clock2,
-                                )
-                            } else {
-                                compute_expected_loss_from_views(current_z.view(), &views)
-                            };
-                            if new_loss < current_loss {
-                                n_accepts += 1;
-                                current_loss = new_loss;
-                                if timer.echo() {
-                                    // R is not thread-safe, so I cannot call r::print() here.
-                                    println!(
-                                        "Candidate {} improved to {} at iteration {}.",
-                                        index_into_candidates, current_loss, iteration_counter
-                                    )
-                                }
-                            } else {
-                                current_z[index] = current_bit;
-                            }
+                .map(|(candidate_number, (mut z, mut loss, mut rng))| {
+                    let mut weight_matrices = make_weight_matrices(z.view(), &views);
+                    let n_features = z.ncols();
+                    let total_length = n_items * n_features;
+                    let mut n_accepts = 0;
+                    for iteration_counter in 0..n_iterations {
+                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                            [index / ncols, index % ncols]
                         }
-
-                        (
-                            current_z,
-                            current_loss,
-                            index_into_candidates,
-                            n_accepts,
-                            clock1,
-                            clock2,
-                        )
-                    },
-                )
+                        let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                        let current_bit = z[index];
+                        z[index] = if current_bit == 0.0 { 1.0 } else { 0.0 };
+                        update_weight_matrices(&mut weight_matrices, &z, index[1], &views);
+                        let new_loss = expected_cost(&weight_matrices);
+                        if new_loss < loss {
+                            n_accepts += 1;
+                            loss = new_loss;
+                            if timer.echo() {
+                                // R is not thread-safe, so I cannot call r::print() here.
+                                println!(
+                                    "Candidate {} improved to {} at iteration {}.",
+                                    candidate_number, loss, iteration_counter
+                                )
+                            }
+                        } else {
+                            z[index] = current_bit;
+                            update_weight_matrices(&mut weight_matrices, &z, index[1], &views);
+                        }
+                    }
+                    (z, loss, candidate_number, n_accepts)
+                })
                 .collect()
         });
         if timer.echo() {
             r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str())
         }
         bests.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-        let (best_z, best_loss, index_into_candidates, n_accepts, clock1, clock2) =
-            bests.swap_remove(0);
+        let (best_z, best_loss, candidate_number, n_accepts) = bests.swap_remove(0);
         if timer.echo() {
             r::print(
                 format!(
-                    "Clock 1 measured {}s, Clock 2 measured {}s.\nBest result is {} from candidate {} after {} accepted proposal{}.\n",
-                    clock1.as_secs_f64(), clock2.as_secs_f64(),
+                    "Best result is {} from candidate {} after {} accepted proposal{}.\n",
                     best_loss,
-                    index_into_candidates,
+                    candidate_number,
                     n_accepts,
                     if n_accepts == 1 { "" } else { "s" }
                 )
@@ -246,25 +222,6 @@ fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item 
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-fn compute_expected_loss_from_views(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> f64 {
-    let sum = samples
-        .iter()
-        .fold(0.0, |acc, zz| acc + compute_loss_from_views(z, *zz));
-    sum / (samples.len() as f64)
-}
-
-fn compute_expected_loss_from_views_timed(
-    z: ArrayView2<f64>,
-    samples: &Vec<ArrayView2<f64>>,
-    clock1: &mut TicToc,
-    clock2: &mut TicToc,
-) -> f64 {
-    let sum = samples.iter().fold(0.0, |acc, zz| {
-        acc + compute_loss_from_views_timed(z, *zz, clock1, clock2)
-    });
-    sum / (samples.len() as f64)
-}
-
 fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::REAL(z)) }
 }
@@ -276,39 +233,37 @@ fn compute_loss_from_views(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> f64 {
     }
 }
 
-fn compute_loss_from_views_timed(
-    y1: ArrayView2<f64>,
-    y2: ArrayView2<f64>,
-    clock1: &mut TicToc,
-    clock2: &mut TicToc,
-) -> f64 {
-    clock1.tic();
-    match make_weight_matrix(y1, y2) {
-        Some(w) => {
-            clock1.toc();
-            clock2.tic();
-            let result = cost(&w);
-            clock2.toc();
-            result
-        }
-        None => {
-            clock1.toc();
-            0.0
-        }
-    }
-}
-
-fn make_weight_matrices(
-    z: ArrayView2<f64>,
-    samples: &Vec<ArrayView2<f64>>,
-) -> Vec<lapjv::Matrix<f64>> {
+fn make_weight_matrices(z: ArrayView2<f64>, samples: &Vec<ArrayView2<f64>>) -> Vec<Array2<f64>> {
     samples
         .iter()
         .map(|zz| make_weight_matrix(z, *zz).unwrap())
         .collect()
 }
 
-fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<lapjv::Matrix<f64>> {
+fn update_weight_matrices(
+    matrices: &mut Vec<Array2<f64>>,
+    z: &Array2<f64>,
+    column: usize,
+    samples: &Vec<ArrayView2<f64>>,
+) {
+    let zero = Array1::zeros(z.nrows());
+    let zero_view = zero.view();
+    let x1 = z.column(column);
+    samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
+        for i2 in 0..w.ncols() {
+            let x2 = if i2 >= zz.ncols() {
+                zero_view
+            } else {
+                zz.column(i2)
+            };
+            w[[column, i2]] = Zip::from(&x1)
+                .and(&x2)
+                .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 });
+        }
+    })
+}
+
+fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2<f64>> {
     let k1 = y1.ncols();
     let k2 = y2.ncols();
     let k = k1.max(k2);
@@ -329,14 +284,14 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<lapjv:
             );
         }
     }
-    Some(unsafe { lapjv::Matrix::from_shape_vec_unchecked((k, k), vec) })
+    Some(unsafe { Array::from_shape_vec_unchecked((k, k), vec) })
 }
 
-fn expected_cost(weight_matrices: &Vec<lapjv::Matrix<f64>>) -> f64 {
+fn expected_cost(weight_matrices: &Vec<Array2<f64>>) -> f64 {
     weight_matrices.iter().fold(0.0, |acc, w| acc + cost(w)) / (weight_matrices.len() as f64)
 }
 
-fn cost(weight_matrix: &lapjv::Matrix<f64>) -> f64 {
+fn cost(weight_matrix: &Array2<f64>) -> f64 {
     let solution = lapjv::lapjv(weight_matrix).unwrap();
     lapjv::cost(weight_matrix, &solution.0)
 }
