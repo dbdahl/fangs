@@ -8,6 +8,7 @@ use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use rayon::ThreadPool;
 use roxido::*;
+use std::path::Path;
 use timers::{EchoTimer, PeriodicTimer};
 
 #[no_mangle]
@@ -36,6 +37,18 @@ extern "C" fn fangs(
             .build()
             .unwrap();
         let quiet = quiet.as_bool();
+        let status_file = match std::env::var("FANGS_STATUS") {
+            Ok(x) => Path::new(x.as_str()).to_owned(),
+            _ => std::env::current_dir()
+                .unwrap_or_default()
+                .join("FANGS_STATUS"),
+        };
+        let break_file = match std::env::var("FANGS_BREAK") {
+            Ok(x) => Path::new(x.as_str()).to_owned(),
+            _ => std::env::current_dir()
+                .unwrap_or_default()
+                .join("FANGS_BREAK"),
+        };
         let o = samples.get_list_element(0);
         if !o.is_double() || !o.is_matrix() {
             return r::error("All elements of 'samples' must be integer matrices.");
@@ -116,7 +129,9 @@ extern "C" fn fangs(
             })
             .collect();
         let mut period_timer = PeriodicTimer::new(1.0);
-        for iteration_counter in 1..=n_iterations {
+        let mut iteration_counter = 0;
+        while iteration_counter < n_iterations {
+            iteration_counter += 1;
             for (z, weight_matrices, loss, _, n_accepts, when, rng) in bests.iter_mut() {
                 let n_features = z.ncols();
                 let total_length = n_items * n_features;
@@ -133,10 +148,21 @@ extern "C" fn fangs(
                 } else {
                     flip_bit(z, weight_matrices, index, &views);
                 }
-                r::check_user_interrupt(); // Maybe not needed, since we can interrupt at the printing.
             }
-            if !quiet {
+            if !quiet || status_file.exists() {
                 period_timer.maybe(iteration_counter == n_iterations, || {
+                    if quiet {
+                        if status_file.exists() {
+                            r::print(
+                                format!(
+                                    "*** {} exists, so forcing status display.\n",
+                                    status_file.display()
+                                )
+                                .as_str(),
+                            );
+                            r::flush_console();
+                        }
+                    }
                     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
                     let best = bests.first().unwrap();
                     r::print(
@@ -153,6 +179,14 @@ extern "C" fn fangs(
                     r::flush_console();
                 });
             }
+            if break_file.exists() {
+                r::print(
+                    format!("\n*** {} exists, so exiting early.\n", break_file.display()).as_str(),
+                );
+                r::flush_console();
+                break;
+            }
+            r::check_user_interrupt();
         }
         if !quiet {
             r::print("\n");
@@ -198,6 +232,7 @@ extern "C" fn fangs(
         let list = r::list_vector_with_names_and_values(&[
             ("estimate", estimate),
             ("loss", r::double_scalar(best_loss).protect()),
+            ("nIterations", r::integer_scalar(iteration_counter as i32)),
             ("seconds", r::double_scalar(timer.total_as_secs_f64())),
         ]);
         r::unprotect(2);

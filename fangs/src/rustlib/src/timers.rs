@@ -45,7 +45,7 @@ pub struct EchoTimer {
 impl EchoTimer {
     pub fn new() -> Self {
         let start = SystemTime::now();
-        let echo = match std::env::var("DBD_ECHO") {
+        let echo = match std::env::var("FANGS_ECHO") {
             Ok(x) if x == "TRUE" || x == "true" => true,
             _ => false,
         };
