@@ -197,23 +197,20 @@ extern "C" fn fangs(
 }
 
 #[no_mangle]
-extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP) -> SEXP {
+extern "C" fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
     panic_to_error!({
+        let n_cores = n_cores.as_integer().max(0) as usize;
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(n_cores)
+            .build()
+            .unwrap();
         let n_samples = samples.xlength_usize();
-        let mut sum = 0.0;
-        if z.is_double() {
-            let z = make_view(z);
-            for i in 0..n_samples {
-                let o = samples.get_list_element(i as isize);
-                match make_weight_matrix(z, make_view(o)) {
-                    Some(weight_matrix) => sum += cost(&weight_matrix),
-                    None => {}
-                }
-            }
-        } else {
-            return r::error("Unsupported type for 'Z'.");
-        };
-        r::double_scalar(sum / (n_samples as f64))
+        let mut views = Vec::with_capacity(n_samples);
+        for i in 0..n_samples {
+            views.push(make_view(samples.get_list_element(i as isize)));
+        }
+        let loss = expected_cost_from_samples(make_view(z), &views, &pool);
+        r::double_scalar(loss)
     })
 }
 

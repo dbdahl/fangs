@@ -14,7 +14,7 @@ mod registration;
 use roxido::*;
 
 #[no_mangle]
-extern "C" fn compute_expected_loss(Z: SEXP, Zs: SEXP) -> SEXP {
+extern "C" fn compute_expected_loss(Z: SEXP, Zs: SEXP, nCores: SEXP) -> SEXP {
     panic_to_error!({
         unsafe { rbindings::R_NilValue }
     })
@@ -28,7 +28,7 @@ extern "C" fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
 }
 
 #[no_mangle]
-extern "C" fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nSamples: SEXP, nBest: SEXP, nCores: SEXP) -> SEXP {
+extern "C" fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nCandidates: SEXP, nBests: SEXP, nCores: SEXP) -> SEXP {
     panic_to_error!({
         unsafe { rbindings::R_NilValue }
     })
@@ -45,7 +45,7 @@ extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
     call_routines.push(rbindings::R_CallMethodDef {
         name: names.last().unwrap().as_ptr(),
         fun: unsafe { std::mem::transmute(crate::compute_expected_loss as *const u8) },
-        numArgs: 2,
+        numArgs: 3,
     });
     names.push(std::ffi::CString::new(".compute_loss").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {
