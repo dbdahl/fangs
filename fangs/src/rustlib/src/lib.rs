@@ -57,7 +57,18 @@ extern "C" fn fangs(
         let mut max_n_features_observed = 0;
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
         if timer.echo() {
-            r::print(timer.stamp("Parsed parameters.\n").unwrap().as_str());
+            r::print(
+                timer
+                    .stamp(
+                        format!(
+                            "Parsed parameters and using {} threads.\n",
+                            pool.current_num_threads()
+                        )
+                        .as_str(),
+                    )
+                    .unwrap()
+                    .as_str(),
+            );
             r::flush_console();
         }
         let mut views = Vec::with_capacity(n_samples);
@@ -88,25 +99,26 @@ extern "C" fn fangs(
             r::print(timer.stamp("Selected candidates.\n").unwrap().as_str());
             r::flush_console();
         }
-        let mut candidates: Vec<_> = selected_candidates_with_rngs
-            .into_iter()
-            .map(|(view, mut rng)| {
-                let n_features_in_view = view.ncols();
-                let n_features = if max_n_features == 0 {
-                    n_features_in_view
-                } else {
-                    max_n_features.min(n_features_in_view)
-                };
-                let selected_columns: Vec<_> =
-                    rand::seq::index::sample(&mut rng, view.ncols(), n_features).into_vec();
-                let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
-                    view[[i, selected_columns[j]]]
-                });
-                let loss = expected_loss_from_samples(z.view(), &views, &pool);
-                r::check_user_interrupt();
-                (z, loss, rng)
-            })
-            .collect();
+        let mut candidates: Vec<_> = pool.install(|| {
+            selected_candidates_with_rngs
+                .into_par_iter()
+                .map(|(view, mut rng)| {
+                    let n_features_in_view = view.ncols();
+                    let n_features = if max_n_features == 0 {
+                        n_features_in_view
+                    } else {
+                        max_n_features.min(n_features_in_view)
+                    };
+                    let selected_columns: Vec<_> =
+                        rand::seq::index::sample(&mut rng, view.ncols(), n_features).into_vec();
+                    let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
+                        view[[i, selected_columns[j]]]
+                    });
+                    let loss = expected_loss_from_samples(z.view(), &views, &pool);
+                    (z, loss, rng)
+                })
+                .collect()
+        });
         if timer.echo() {
             r::print(
                 timer
@@ -132,23 +144,27 @@ extern "C" fn fangs(
         let mut iteration_counter = 0;
         while iteration_counter < n_iterations {
             iteration_counter += 1;
-            for (z, weight_matrices, loss, _, n_accepts, when, rng) in bests.iter_mut() {
-                let n_features = z.ncols();
-                let total_length = n_items * n_features;
-                fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                    [index / ncols, index % ncols]
-                }
-                let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                flip_bit(z, weight_matrices, index, &views);
-                let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
-                if new_loss < *loss {
-                    *n_accepts += 1;
-                    *when = iteration_counter;
-                    *loss = new_loss;
-                } else {
-                    flip_bit(z, weight_matrices, index, &views);
-                }
-            }
+            pool.install(|| {
+                bests.par_iter_mut().for_each(
+                    |(z, weight_matrices, loss, _, n_accepts, when, rng)| {
+                        let n_features = z.ncols();
+                        let total_length = n_items * n_features;
+                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                            [index / ncols, index % ncols]
+                        }
+                        let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                        flip_bit(z, weight_matrices, index, &views);
+                        let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
+                        if new_loss < *loss {
+                            *n_accepts += 1;
+                            *when = iteration_counter;
+                            *loss = new_loss;
+                        } else {
+                            flip_bit(z, weight_matrices, index, &views);
+                        }
+                    },
+                );
+            });
             if !quiet || status_file.exists() {
                 period_timer.maybe(iteration_counter == n_iterations, || {
                     if quiet {
