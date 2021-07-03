@@ -167,13 +167,13 @@ extern "C" fn fangs(
                     let best = bests.first().unwrap();
                     r::print(
                         format!(
-                        "\rIter. {}: Since {}, loss is {:.4} from candidate {} with {} accepts ",
-                        iteration_counter,
-                        best.5,
-                        best.2,
-                        best.3 + 1,
-                        best.4,
-                    )
+                            "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accepts ",
+                            iteration_counter,
+                            best.5,
+                            best.2,
+                            best.3 + 1,
+                            best.4,
+                        )
                         .as_str(),
                     );
                     r::flush_console();
