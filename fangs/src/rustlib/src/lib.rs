@@ -91,10 +91,10 @@ extern "C" fn fangs(
                 })
                 .collect();
         if timer.echo() {
-            interrupted |= r::print(timer.stamp("Selected candidates.\n").unwrap().as_str());
+            interrupted |= r::print(timer.stamp("Selected all candidates.\n").unwrap().as_str());
             r::flush_console();
         }
-        let mut candidates: Vec<_> = pool.install(|| {
+        let selected_candidates_with_rngs: Vec<_> = pool.install(|| {
             selected_candidates_with_rngs
                 .into_par_iter()
                 .map(|(view, mut rng)| {
@@ -109,15 +109,31 @@ extern "C" fn fangs(
                     let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
                         view[[i, selected_columns[j]]]
                     });
-                    let loss = expected_loss_from_samples(z.view(), &views, &pool);
-                    (z, loss, rng)
+                    (z, rng)
                 })
                 .collect()
         });
         if timer.echo() {
             interrupted |= r::print(
                 timer
-                    .stamp("Computed expected loss for candidates.\n")
+                    .stamp("Reduced number of features for all candidates.\n")
+                    .unwrap()
+                    .as_str(),
+            );
+            r::flush_console();
+        }
+        let mut candidates = Vec::with_capacity(selected_candidates_with_rngs.len());
+        for (z, rng) in selected_candidates_with_rngs {
+            if interrupted || r::check_user_interrupt() {
+                return r::error("Caught user interrupt before main loop, so aborting.");
+            }
+            let loss = expected_loss_from_samples(z.view(), &views, &pool);
+            candidates.push((z, loss, rng));
+        }
+        if timer.echo() {
+            interrupted |= r::print(
+                timer
+                    .stamp("Computed expected loss for all candidates.\n")
                     .unwrap()
                     .as_str(),
             );
@@ -125,17 +141,29 @@ extern "C" fn fangs(
         }
         candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
         candidates.truncate(n_bests);
-        let mut bests: Vec<_> = candidates
-            .into_iter()
-            .enumerate()
-            .map(|(id, (z, loss, rng))| {
-                let weight_matrices = make_weight_matrices(z.view(), &views, &pool);
-                let n_accepts = 0;
-                let when = 1;
-                (z, weight_matrices, loss, id, n_accepts, when, rng)
-            })
-            .collect();
-        let mut period_timer = PeriodicTimer::new(1.0);
+        let mut bests: Vec<_> = pool.install(|| {
+            candidates
+                .into_par_iter()
+                .enumerate()
+                .map(|(id, (z, loss, rng))| {
+                    let weight_matrices = make_weight_matrices(z.view(), &views, &pool);
+                    let n_accepts = 0;
+                    let when = 1;
+                    (z, weight_matrices, loss, id, n_accepts, when, rng)
+                })
+                .collect()
+        });
+        if timer.echo() {
+            interrupted |= r::print(
+                timer
+                    .stamp("Computed weight matrices for bests.\n")
+                    .unwrap()
+                    .as_str(),
+            );
+            r::flush_console();
+        }
+        let threshold_in_secs = 1.0;
+        let mut period_timer = PeriodicTimer::new(threshold_in_secs);
         let mut iteration_counter = 0;
         while iteration_counter < n_iterations {
             iteration_counter += 1;
