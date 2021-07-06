@@ -43,12 +43,6 @@ extern "C" fn fangs(
                 .unwrap_or_default()
                 .join("FANGS_STATUS"),
         };
-        let break_file = match std::env::var("FANGS_BREAK") {
-            Ok(x) => Path::new(x.as_str()).to_owned(),
-            _ => std::env::current_dir()
-                .unwrap_or_default()
-                .join("FANGS_BREAK"),
-        };
         let o = samples.get_list_element(0);
         if !o.is_double() || !o.is_matrix() {
             return r::error("All elements of 'samples' must be integer matrices.");
@@ -56,8 +50,9 @@ extern "C" fn fangs(
         let n_items = o.nrow_usize();
         let mut max_n_features_observed = 0;
         let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
+        let mut interrupted = false;
         if timer.echo() {
-            r::print(
+            interrupted |= r::print(
                 timer
                     .stamp(
                         format!(
@@ -82,7 +77,7 @@ extern "C" fn fangs(
             views.push(view)
         }
         if timer.echo() {
-            r::print(timer.stamp("Made data structures.\n").unwrap().as_str());
+            interrupted |= r::print(timer.stamp("Made data structures.\n").unwrap().as_str());
             r::flush_console();
         }
         let selected_candidates_with_rngs: Vec<_> =
@@ -96,7 +91,7 @@ extern "C" fn fangs(
                 })
                 .collect();
         if timer.echo() {
-            r::print(timer.stamp("Selected candidates.\n").unwrap().as_str());
+            interrupted |= r::print(timer.stamp("Selected candidates.\n").unwrap().as_str());
             r::flush_console();
         }
         let mut candidates: Vec<_> = pool.install(|| {
@@ -120,7 +115,7 @@ extern "C" fn fangs(
                 .collect()
         });
         if timer.echo() {
-            r::print(
+            interrupted |= r::print(
                 timer
                     .stamp("Computed expected loss for candidates.\n")
                     .unwrap()
@@ -169,7 +164,7 @@ extern "C" fn fangs(
                 period_timer.maybe(iteration_counter == n_iterations, || {
                     if quiet {
                         if status_file.exists() {
-                            r::print(
+                            interrupted |= r::print(
                                 format!(
                                     "*** {} exists, so forcing status display.\n",
                                     status_file.display()
@@ -181,7 +176,7 @@ extern "C" fn fangs(
                     }
                     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
                     let best = bests.first().unwrap();
-                    r::print(
+                    interrupted |= r::print(
                         format!(
                             "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accepts ",
                             iteration_counter,
@@ -195,14 +190,11 @@ extern "C" fn fangs(
                     r::flush_console();
                 });
             }
-            if break_file.exists() {
-                r::print(
-                    format!("\n*** {} exists, so exiting early.\n", break_file.display()).as_str(),
-                );
+            if interrupted || r::check_user_interrupt() {
+                r::print(format!("\nCaught user interrupt, so breaking out early.").as_str());
                 r::flush_console();
                 break;
             }
-            r::check_user_interrupt();
         }
         if !quiet {
             r::print("\n");
@@ -301,7 +293,7 @@ fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item 
 }
 
 fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
-    unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), rbindings::REAL(z)) }
+    unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), z.as_double_ptr()) }
 }
 
 fn make_weight_matrices(
