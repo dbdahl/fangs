@@ -11,6 +11,6 @@ crate-type = ["staticlib"]
 roxido = { path="roxido" }
 lapjv = "0.2.0"
 ndarray = "0.13.1"
-rand = "0.8.3"
-rand_pcg = "0.3.0"
+rand = "0.8.4"
+rand_pcg = "0.3.1"
 rayon = "1.5.1"

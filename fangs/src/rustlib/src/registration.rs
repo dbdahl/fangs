@@ -13,25 +13,19 @@
 mod registration;
 use roxido::*;
 
-#[no_mangle]
-extern "C" fn compute_expected_loss(Z: SEXP, Zs: SEXP, nCores: SEXP) -> SEXP {
-    panic_to_error!({
-        unsafe { rbindings::R_NilValue }
-    })
+#[roxido]
+fn compute_expected_loss(Z: SEXP, Zs: SEXP, nCores: SEXP) -> SEXP {
+    unsafe { rbindings::R_NilValue }
 }
 
-#[no_mangle]
-extern "C" fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
-    panic_to_error!({
-        unsafe { rbindings::R_NilValue }
-    })
+#[roxido]
+fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
+    unsafe { rbindings::R_NilValue }
 }
 
-#[no_mangle]
-extern "C" fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nCandidates: SEXP, nBests: SEXP, nCores: SEXP, quiet: SEXP) -> SEXP {
-    panic_to_error!({
-        unsafe { rbindings::R_NilValue }
-    })
+#[roxido]
+fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nCandidates: SEXP, nBests: SEXP, nCores: SEXP, quiet: SEXP) -> SEXP {
+    unsafe { rbindings::R_NilValue }
 }
 */
 
