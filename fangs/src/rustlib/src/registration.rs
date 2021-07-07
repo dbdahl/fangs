@@ -15,17 +15,17 @@ use roxido::*;
 
 #[roxido]
 fn compute_expected_loss(Z: SEXP, Zs: SEXP, nCores: SEXP) -> SEXP {
-    unsafe { rbindings::R_NilValue }
+    r::nil()
 }
 
 #[roxido]
 fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
-    unsafe { rbindings::R_NilValue }
+    r::nil()
 }
 
 #[roxido]
 fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nCandidates: SEXP, nBests: SEXP, nCores: SEXP, quiet: SEXP) -> SEXP {
-    unsafe { rbindings::R_NilValue }
+    r::nil()
 }
 */
 
@@ -70,4 +70,3 @@ extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
         rbindings::R_forceSymbols(info, 1);
     }
 }
-
