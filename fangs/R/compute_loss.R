@@ -19,5 +19,5 @@ compute_loss <- function(Z1, Z2) {
   if ( ! is.matrix(Z1) ) stop("'Z1' should be a matrix.")
   if ( ! is.matrix(Z2) ) stop("'Z2' should be a matrix.")
   if ( nrow(Z1) != nrow(Z2) ) stop("'Z1' and 'Z2' must have the same number of rows.")
-  .Kall(.compute_loss,Z1,Z2)
+  .Call(.compute_loss,Z1,Z2)
 }

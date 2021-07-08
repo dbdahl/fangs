@@ -35,6 +35,6 @@
 #'
 fangs <- function(Zs, nIterations=100, maxNFeatures=0, nCandidates=length(Zs), nBests=1, nCores=0, quiet=FALSE) {
   Zs <- lapply(Zs, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Kall(.fangs, Zs, nIterations, maxNFeatures, nCandidates, nBests, nCores, quiet)
+  result <- .Call(.fangs, Zs, nIterations, maxNFeatures, nCandidates, nBests, nCores, quiet)
   c(result, maxNFeatures=maxNFeatures, nCandidates=nCandidates, nBests=nBests)
 }
