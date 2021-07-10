@@ -26,11 +26,11 @@ fn fangs(
     if n_samples < 1 {
         return r::error("Number of samples must be at least one.");
     }
-    let max_n_features = max_n_features.as_integer().max(0) as usize;
-    let n_candidates = (n_candidates.as_integer().max(1) as usize).min(n_samples);
-    let n_bests = (n_bests.as_integer().max(1) as usize).min(n_candidates);
-    let n_iterations = n_iterations.as_integer().max(0) as usize;
-    let n_cores = n_cores.as_integer().max(0) as usize;
+    let max_n_features = max_n_features.as_integer_scalar().max(0) as usize;
+    let n_candidates = (n_candidates.as_integer_scalar().max(1) as usize).min(n_samples);
+    let n_bests = (n_bests.as_integer_scalar().max(1) as usize).min(n_candidates);
+    let n_iterations = n_iterations.as_integer_scalar().max(0) as usize;
+    let n_cores = n_cores.as_integer_scalar().max(0) as usize;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -280,7 +280,7 @@ fn fangs(
 
 #[roxido]
 fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
-    let n_cores = n_cores.as_integer().max(0) as usize;
+    let n_cores = n_cores.as_integer_scalar().max(0) as usize;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
