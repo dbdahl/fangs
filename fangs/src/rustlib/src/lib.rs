@@ -25,7 +25,7 @@ fn fangs(
     let mut timer = EchoTimer::new();
     let n_samples = samples.length();
     if n_samples < 1 {
-        return r::error("Number of samples must be at least one.");
+        panic!("Number of samples must be at least one.");
     }
     let max_n_features = max_n_features.as_usize().max(0);
     let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
@@ -45,7 +45,7 @@ fn fangs(
     };
     let o = samples.get_list_element(0);
     if !o.is_double() || !o.is_matrix() {
-        return r::error("All elements of 'samples' must be integer matrices.");
+        panic!("All elements of 'samples' must be integer matrices.");
     }
     let n_items = o.nrow_usize();
     let mut max_n_features_observed = 0;
@@ -70,7 +70,7 @@ fn fangs(
     for i in 0..n_samples {
         let o = samples.get_list_element(i);
         if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
-            return r::error("All elements of 'samples' must be double matrices with a consistent number of rows.");
+            panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
         max_n_features_observed += max_n_features_observed.max(view.ncols());
@@ -125,7 +125,7 @@ fn fangs(
     let mut candidates = Vec::with_capacity(selected_candidates_with_rngs.len());
     for (z, rng) in selected_candidates_with_rngs {
         if interrupted || r::check_user_interrupt() {
-            return r::error("Caught user interrupt before main loop, so aborting.");
+            panic!("Caught user interrupt before main loop, so aborting.");
         }
         let loss = expected_loss_from_samples(z.view(), &views, &pool);
         candidates.push((z, loss, rng));
@@ -258,7 +258,7 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = r::double_matrix(
+    let estimate = r::mk_double_matrix(
         i32::try_from(n_items).unwrap(),
         i32::try_from(columns_to_keep.len()).unwrap(),
     )
@@ -269,14 +269,14 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate, j_new, best_z.column(*j_old).iter())
         });
-    let list = r::list_vector_with_names_and_values(&[
+    let list = r::mk_list_vector_with_names_and_values(&[
         ("estimate", estimate),
-        ("loss", r::double_scalar(best_loss).protect()),
+        ("loss", r::mk_double_scalar(best_loss).protect()),
         (
             "nIterations",
-            r::integer_scalar(i32::try_from(iteration_counter).unwrap()),
+            r::mk_integer_scalar(i32::try_from(iteration_counter).unwrap()),
         ),
-        ("seconds", r::double_scalar(timer.total_as_secs_f64())),
+        ("seconds", r::mk_double_scalar(timer.total_as_secs_f64())),
     ]);
     r::unprotect(2);
     if timer.echo() {
@@ -299,7 +299,7 @@ fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
         views.push(make_view(samples.get_list_element(i)));
     }
     let loss = expected_loss_from_samples(make_view(z), &views, &pool);
-    r::double_scalar(loss)
+    r::mk_double_scalar(loss)
 }
 
 #[roxido]
@@ -310,9 +310,9 @@ fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
             None => 0.0,
         }
     } else {
-        return r::error("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+        panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    r::double_scalar(loss)
+    r::mk_double_scalar(loss)
 }
 
 fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item = &'a f64>) {
