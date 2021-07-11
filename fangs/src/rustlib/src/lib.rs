@@ -23,7 +23,7 @@ fn fangs(
     quiet: SEXP,
 ) -> SEXP {
     let mut timer = EchoTimer::new();
-    let n_samples = samples.length_usize();
+    let n_samples = samples.length();
     if n_samples < 1 {
         return r::error("Number of samples must be at least one.");
     }
@@ -68,7 +68,7 @@ fn fangs(
     }
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
-        let o = samples.get_list_element(i as isize);
+        let o = samples.get_list_element(i);
         if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
             return r::error("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
@@ -293,10 +293,10 @@ fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
         .num_threads(n_cores)
         .build()
         .unwrap();
-    let n_samples = samples.xlength_usize();
+    let n_samples = samples.length();
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
-        views.push(make_view(samples.get_list_element(i as isize)));
+        views.push(make_view(samples.get_list_element(i)));
     }
     let loss = expected_loss_from_samples(make_view(z), &views, &pool);
     r::double_scalar(loss)
