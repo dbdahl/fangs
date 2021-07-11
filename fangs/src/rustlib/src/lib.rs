@@ -8,6 +8,7 @@ use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use rayon::ThreadPool;
 use roxido::*;
+use std::convert::TryFrom;
 use std::path::Path;
 use timers::{EchoTimer, PeriodicTimer};
 
@@ -26,11 +27,11 @@ fn fangs(
     if n_samples < 1 {
         return r::error("Number of samples must be at least one.");
     }
-    let max_n_features = max_n_features.as_integer_scalar().max(0) as usize;
-    let n_candidates = (n_candidates.as_integer_scalar().max(1) as usize).min(n_samples);
-    let n_bests = (n_bests.as_integer_scalar().max(1) as usize).min(n_candidates);
-    let n_iterations = n_iterations.as_integer_scalar().max(0) as usize;
-    let n_cores = n_cores.as_integer_scalar().max(0) as usize;
+    let max_n_features = max_n_features.as_usize().max(0);
+    let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
+    let n_bests = n_bests.as_usize().max(1).min(n_candidates);
+    let n_iterations = n_iterations.as_usize().max(0);
+    let n_cores = n_cores.as_usize().max(0);
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -86,7 +87,7 @@ fn fangs(
                 let mut seed = [0_u8; 16];
                 rng.fill_bytes(&mut seed);
                 let new_rng = Pcg64Mcg::from_seed(seed);
-                (views[index as usize], new_rng)
+                (views[index], new_rng)
             })
             .collect();
     if timer.echo() {
@@ -257,7 +258,11 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = r::double_matrix(n_items as i32, columns_to_keep.len() as i32).protect();
+    let estimate = r::double_matrix(
+        i32::try_from(n_items).unwrap(),
+        i32::try_from(columns_to_keep.len()).unwrap(),
+    )
+    .protect();
     columns_to_keep
         .iter()
         .enumerate()
@@ -267,7 +272,10 @@ fn fangs(
     let list = r::list_vector_with_names_and_values(&[
         ("estimate", estimate),
         ("loss", r::double_scalar(best_loss).protect()),
-        ("nIterations", r::integer_scalar(iteration_counter as i32)),
+        (
+            "nIterations",
+            r::integer_scalar(i32::try_from(iteration_counter).unwrap()),
+        ),
         ("seconds", r::double_scalar(timer.total_as_secs_f64())),
     ]);
     r::unprotect(2);
@@ -280,7 +288,7 @@ fn fangs(
 
 #[roxido]
 fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
-    let n_cores = n_cores.as_integer_scalar().max(0) as usize;
+    let n_cores = n_cores.as_usize().max(0);
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
