@@ -258,11 +258,7 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = r::mk_double_matrix(
-        i32::try_from(n_items).unwrap(),
-        i32::try_from(columns_to_keep.len()).unwrap(),
-    )
-    .protect();
+    let estimate = r::mk_double_matrix(n_items, columns_to_keep.len()).protect();
     columns_to_keep
         .iter()
         .enumerate()
