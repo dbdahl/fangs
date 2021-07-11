@@ -15,21 +15,17 @@ impl PeriodicTimer {
             threshold_in_secs,
         }
     }
-    pub fn maybe(&mut self, condition: bool, mut x: impl FnMut() -> ()) {
+    pub fn maybe(&mut self, condition: bool, mut x: impl FnMut()) {
         let now = SystemTime::now();
-        if condition {
-            x();
-            self.latest = now;
-        } else {
-            if now
+        if condition
+            || now
                 .duration_since(self.latest)
                 .unwrap_or(Duration::ZERO)
                 .as_secs_f64()
                 > self.threshold_in_secs
-            {
-                x();
-                self.latest = now;
-            }
+        {
+            x();
+            self.latest = now;
         }
     }
 }
@@ -45,10 +41,7 @@ pub struct EchoTimer {
 impl EchoTimer {
     pub fn new() -> Self {
         let start = SystemTime::now();
-        let echo = match std::env::var("FANGS_ECHO") {
-            Ok(x) if x == "TRUE" || x == "true" => true,
-            _ => false,
-        };
+        let echo = matches!(std::env::var("FANGS_ECHO"), Ok(x) if x == "TRUE" || x == "true");
         EchoTimer {
             start,
             latest: start,

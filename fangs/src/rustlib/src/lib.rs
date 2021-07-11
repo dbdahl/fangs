@@ -190,17 +190,15 @@ fn fangs(
         });
         if !quiet || status_file.exists() {
             period_timer.maybe(iteration_counter == n_iterations, || {
-                if quiet {
-                    if status_file.exists() {
-                        interrupted |= r::print(
-                            format!(
-                                "*** {} exists, so forcing status display.\n",
-                                status_file.display()
-                            )
-                            .as_str(),
-                        );
-                        r::flush_console();
-                    }
+                if quiet && status_file.exists() {
+                    interrupted |= r::print(
+                        format!(
+                            "*** {} exists, so forcing status display.\n",
+                            status_file.display()
+                        )
+                        .as_str(),
+                    );
+                    r::flush_console();
                 }
                 bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
                 let best = bests.first().unwrap();
@@ -219,7 +217,7 @@ fn fangs(
             });
         }
         if interrupted || r::check_user_interrupt() {
-            r::print(format!("\nCaught user interrupt, so breaking out early.").as_str());
+            r::print("\nCaught user interrupt, so breaking out early.");
             r::flush_console();
             break;
         }
@@ -324,7 +322,7 @@ fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
 
 fn make_weight_matrices(
     z: ArrayView2<f64>,
-    samples: &Vec<ArrayView2<f64>>,
+    samples: &[ArrayView2<f64>],
     pool: &ThreadPool,
 ) -> Vec<Array2<f64>> {
     pool.install(|| {
@@ -339,7 +337,7 @@ fn flip_bit(
     z: &mut Array2<f64>,
     matrices: &mut Vec<Array2<f64>>,
     index: [usize; 2],
-    samples: &Vec<ArrayView2<f64>>,
+    samples: &[ArrayView2<f64>],
 ) {
     let old_bit = z[index];
     z[index] = if old_bit == 0.0 { 1.0 } else { 0.0 };
@@ -390,7 +388,7 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2
 
 fn expected_loss_from_samples(
     z: ArrayView2<f64>,
-    samples: &Vec<ArrayView2<f64>>,
+    samples: &[ArrayView2<f64>],
     pool: &ThreadPool,
 ) -> f64 {
     pool.install(|| {
@@ -410,10 +408,7 @@ fn expected_loss_from_samples(
     })
 }
 
-fn expected_loss_from_weight_matrices(
-    weight_matrices: &Vec<Array2<f64>>,
-    pool: &ThreadPool,
-) -> f64 {
+fn expected_loss_from_weight_matrices(weight_matrices: &[Array2<f64>], pool: &ThreadPool) -> f64 {
     pool.install(|| {
         weight_matrices
             .par_iter()
