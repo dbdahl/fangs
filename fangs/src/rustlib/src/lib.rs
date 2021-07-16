@@ -14,14 +14,14 @@ use timers::{EchoTimer, PeriodicTimer};
 
 #[roxido]
 fn fangs(
-    samples: SEXP,
-    n_iterations: SEXP,
-    max_n_features: SEXP,
-    n_candidates: SEXP,
-    n_bests: SEXP,
-    n_cores: SEXP,
-    quiet: SEXP,
-) -> SEXP {
+    samples: Rval,
+    n_iterations: Rval,
+    max_n_features: Rval,
+    n_candidates: Rval,
+    n_bests: Rval,
+    n_cores: Rval,
+    quiet: Rval,
+) -> Rval {
     let mut timer = EchoTimer::new();
     let n_samples = samples.length();
     if n_samples < 1 {
@@ -47,12 +47,13 @@ fn fangs(
     if !o.is_double() || !o.is_matrix() {
         panic!("All elements of 'samples' must be integer matrices.");
     }
-    let n_items = o.nrow_usize();
+    let n_items = o.nrow();
     let mut max_n_features_observed = 0;
     let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
-        interrupted |= r::print(
+        interrupted |= rprint!(
+            "{}",
             timer
                 .stamp(
                     format!(
@@ -62,14 +63,14 @@ fn fangs(
                     .as_str(),
                 )
                 .unwrap()
-                .as_str(),
+                .as_str()
         );
         r::flush_console();
     }
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
         let o = samples.get_list_element(i);
-        if !o.is_double() || !o.is_matrix() || o.nrow_usize() != n_items {
+        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
             panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
@@ -77,7 +78,10 @@ fn fangs(
         views.push(view)
     }
     if timer.echo() {
-        interrupted |= r::print(timer.stamp("Made data structures.\n").unwrap().as_str());
+        interrupted |= rprint!(
+            "{}",
+            timer.stamp("Made data structures.\n").unwrap().as_str()
+        );
         r::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> =
@@ -91,7 +95,10 @@ fn fangs(
             })
             .collect();
     if timer.echo() {
-        interrupted |= r::print(timer.stamp("Selected all candidates.\n").unwrap().as_str());
+        interrupted |= rprint!(
+            "{}",
+            timer.stamp("Selected all candidates.\n").unwrap().as_str()
+        );
         r::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> = pool.install(|| {
@@ -114,11 +121,12 @@ fn fangs(
             .collect()
     });
     if timer.echo() {
-        interrupted |= r::print(
+        interrupted |= rprint!(
+            "{}",
             timer
                 .stamp("Reduced number of features for all candidates.\n")
                 .unwrap()
-                .as_str(),
+                .as_str()
         );
         r::flush_console();
     }
@@ -131,11 +139,12 @@ fn fangs(
         candidates.push((z, loss, rng));
     }
     if timer.echo() {
-        interrupted |= r::print(
+        interrupted |= rprint!(
+            "{}",
             timer
                 .stamp("Computed expected loss for all candidates.\n")
                 .unwrap()
-                .as_str(),
+                .as_str()
         );
         r::flush_console();
     }
@@ -154,11 +163,12 @@ fn fangs(
             .collect()
     });
     if timer.echo() {
-        interrupted |= r::print(
+        interrupted |= rprint!(
+            "{}",
             timer
                 .stamp("Computed weight matrices for bests.\n")
                 .unwrap()
-                .as_str(),
+                .as_str()
         );
         r::flush_console();
     }
@@ -191,18 +201,20 @@ fn fangs(
         if !quiet || status_file.exists() {
             period_timer.maybe(iteration_counter == n_iterations, || {
                 if quiet && status_file.exists() {
-                    interrupted |= r::print(
+                    interrupted |= rprint!(
+                        "{}",
                         format!(
                             "*** {} exists, so forcing status display.\n",
                             status_file.display()
                         )
-                        .as_str(),
+                        .as_str()
                     );
                     r::flush_console();
                 }
                 bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
                 let best = bests.first().unwrap();
-                interrupted |= r::print(
+                interrupted |= rprint!(
+                    "{}",
                     format!(
                         "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accepts ",
                         iteration_counter,
@@ -211,29 +223,30 @@ fn fangs(
                         best.3 + 1,
                         best.4,
                     )
-                    .as_str(),
+                    .as_str()
                 );
                 r::flush_console();
             });
         }
         if interrupted || r::check_user_interrupt() {
-            r::print("\nCaught user interrupt, so breaking out early.");
+            rprint!("\nCaught user interrupt, so breaking out early.");
             r::flush_console();
             break;
         }
     }
     if !quiet {
-        r::print("\n");
+        rprint!("\n");
         r::flush_console();
     }
     if timer.echo() {
-        r::print(timer.stamp("Sweetened bests.\n").unwrap().as_str());
+        rprint!("{}", timer.stamp("Sweetened bests.\n").unwrap().as_str());
         r::flush_console();
     }
     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
     let (best_z, _, best_loss, candidate_number, n_accepts, _, _) = bests.swap_remove(0);
     if timer.echo() {
-        r::print(
+        rprint!(
+            "{}",
             format!(
                 "Best result is {} from candidate {} after {} accepted proposal{}.\n",
                 best_loss,
@@ -241,7 +254,7 @@ fn fangs(
                 n_accepts,
                 if n_accepts == 1 { "" } else { "s" }
             )
-            .as_str(),
+            .as_str()
         );
         r::flush_console();
     }
@@ -265,23 +278,23 @@ fn fangs(
         });
     let list = r::mk_list_vector_with_names_and_values(&[
         ("estimate", estimate),
-        ("loss", r::mk_double_scalar(best_loss).protect()),
+        ("loss", Rval::from(best_loss).protect()),
         (
             "nIterations",
-            r::mk_integer_scalar(i32::try_from(iteration_counter).unwrap()),
+            Rval::try_from(iteration_counter).unwrap().protect(),
         ),
-        ("seconds", r::mk_double_scalar(timer.total_as_secs_f64())),
+        ("seconds", Rval::from(timer.total_as_secs_f64()).protect()),
     ]);
-    r::unprotect(2);
+    r::unprotect(4);
     if timer.echo() {
-        r::print(timer.stamp("Finalized results.\n").unwrap().as_str());
+        rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
     }
     list
 }
 
 #[roxido]
-fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
+fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
     let n_cores = n_cores.as_usize().max(0);
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
@@ -292,12 +305,11 @@ fn compute_expected_loss(z: SEXP, samples: SEXP, n_cores: SEXP) -> SEXP {
     for i in 0..n_samples {
         views.push(make_view(samples.get_list_element(i)));
     }
-    let loss = expected_loss_from_samples(make_view(z), &views, &pool);
-    r::mk_double_scalar(loss)
+    expected_loss_from_samples(make_view(z), &views, &pool).into()
 }
 
 #[roxido]
-fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
+fn compute_loss(z1: Rval, z2: Rval) -> Rval {
     let loss = if z1.is_double() && z2.is_double() {
         match make_weight_matrix(make_view(z1), make_view(z2)) {
             Some(weight_matrix) => loss(&weight_matrix),
@@ -306,18 +318,18 @@ fn compute_loss(z1: SEXP, z2: SEXP) -> SEXP {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    r::mk_double_scalar(loss)
+    loss.into()
 }
 
-fn matrix_copy_into_column<'a>(matrix: SEXP, j: usize, iter: impl Iterator<Item = &'a f64>) {
+fn matrix_copy_into_column<'a>(matrix: Rval, j: usize, iter: impl Iterator<Item = &'a f64>) {
     let slice = matrix.as_double_slice_mut();
-    let nrow = matrix.nrow_usize();
+    let nrow = matrix.nrow();
     let subslice = &mut slice[(j * nrow)..((j + 1) * nrow)];
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-fn make_view(z: SEXP) -> ArrayView2<'static, f64> {
-    unsafe { ArrayView::from_shape_ptr((z.nrow_usize(), z.ncol_usize()).f(), z.as_double_ptr()) }
+fn make_view(z: Rval) -> ArrayView2<'static, f64> {
+    unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.as_double_ptr()) }
 }
 
 fn make_weight_matrices(

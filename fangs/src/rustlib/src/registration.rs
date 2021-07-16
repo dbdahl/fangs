@@ -14,17 +14,17 @@ mod registration;
 use roxido::*;
 
 #[roxido]
-fn compute_expected_loss(Z: SEXP, Zs: SEXP, nCores: SEXP) -> SEXP {
+fn compute_expected_loss(Z: Rval, Zs: Rval, nCores: Rval) -> Rval {
     r::nil()
 }
 
 #[roxido]
-fn compute_loss(Z1: SEXP, Z2: SEXP) -> SEXP {
+fn compute_loss(Z1: Rval, Z2: Rval) -> Rval {
     r::nil()
 }
 
 #[roxido]
-fn fangs(Zs: SEXP, nIterations: SEXP, maxNFeatures: SEXP, nCandidates: SEXP, nBests: SEXP, nCores: SEXP, quiet: SEXP) -> SEXP {
+fn fangs(Zs: Rval, nIterations: Rval, maxNFeatures: Rval, nCandidates: Rval, nBests: Rval, nCores: Rval, quiet: Rval) -> Rval {
     r::nil()
 }
 */
