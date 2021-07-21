@@ -8,7 +8,7 @@ use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use rayon::ThreadPool;
 use roxido::*;
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::path::Path;
 use timers::{EchoTimer, PeriodicTimer};
 
@@ -23,15 +23,15 @@ fn fangs(
     quiet: Rval,
 ) -> Rval {
     let mut timer = EchoTimer::new();
-    let n_samples = samples.length();
+    let n_samples = samples.len();
     if n_samples < 1 {
         panic!("Number of samples must be at least one.");
     }
-    let max_n_features = max_n_features.as_usize().max(0);
+    let max_n_features = max_n_features.as_usize();
     let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
     let n_bests = n_bests.as_usize().max(1).min(n_candidates);
-    let n_iterations = n_iterations.as_usize().max(0);
-    let n_cores = n_cores.as_usize().max(0);
+    let n_iterations = n_iterations.as_usize();
+    let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -44,8 +44,8 @@ fn fangs(
             .join("FANGS_STATUS"),
     };
     let o = samples.get_list_element(0);
-    if !o.is_double() || !o.is_matrix() {
-        panic!("All elements of 'samples' must be integer matrices.");
+    if !o.is_real() || !o.is_matrix() {
+        panic!("All elements of 'samples' must be double matrices.");
     }
     let n_items = o.nrow();
     let mut max_n_features_observed = 0;
@@ -70,7 +70,7 @@ fn fangs(
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
         let o = samples.get_list_element(i);
-        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
+        if !o.is_real() || !o.is_matrix() || o.nrow() != n_items {
             panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
@@ -269,23 +269,21 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = r::mk_double_matrix(n_items, columns_to_keep.len()).protect();
+    let (estimate, estimate_slice) = r::new_matrix_real(n_items, columns_to_keep.len()).protect();
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
-            matrix_copy_into_column(estimate, j_new, best_z.column(*j_old).iter())
+            matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = r::mk_list_vector_with_names_and_values(&[
-        ("estimate", estimate),
-        ("loss", Rval::from(best_loss).protect()),
-        (
-            "nIterations",
-            Rval::try_from(iteration_counter).unwrap().protect(),
-        ),
-        ("seconds", Rval::from(timer.total_as_secs_f64()).protect()),
-    ]);
-    r::unprotect(4);
+    let list = r::new_list(4)
+        .protect()
+        .names_gets(["estimate", "loss", "nIterations", "seconds"].into());
+    list.set_list_element(0, estimate);
+    list.set_list_element(1, best_loss.into());
+    list.set_list_element(2, iteration_counter.try_into().unwrap());
+    list.set_list_element(3, timer.total_as_secs_f64().into());
+    r::unprotect(2);
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -295,12 +293,12 @@ fn fangs(
 
 #[roxido]
 fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
-    let n_cores = n_cores.as_usize().max(0);
+    let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
         .unwrap();
-    let n_samples = samples.length();
+    let n_samples = samples.len();
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
         views.push(make_view(samples.get_list_element(i)));
@@ -310,7 +308,7 @@ fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
 
 #[roxido]
 fn compute_loss(z1: Rval, z2: Rval) -> Rval {
-    let loss = if z1.is_double() && z2.is_double() {
+    let loss = if z1.is_real() && z2.is_real() {
         match make_weight_matrix(make_view(z1), make_view(z2)) {
             Some(weight_matrix) => loss(&weight_matrix),
             None => 0.0,
@@ -321,15 +319,18 @@ fn compute_loss(z1: Rval, z2: Rval) -> Rval {
     loss.into()
 }
 
-fn matrix_copy_into_column<'a>(matrix: Rval, j: usize, iter: impl Iterator<Item = &'a f64>) {
-    let slice = matrix.as_double_slice_mut();
-    let nrow = matrix.nrow();
+fn matrix_copy_into_column<'a>(
+    slice: &mut [f64],
+    nrow: usize,
+    j: usize,
+    iter: impl Iterator<Item = &'a f64>,
+) {
     let subslice = &mut slice[(j * nrow)..((j + 1) * nrow)];
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
 fn make_view(z: Rval) -> ArrayView2<'static, f64> {
-    unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.as_double_ptr()) }
+    unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.try_into().unwrap()) }
 }
 
 fn make_weight_matrices(
@@ -345,6 +346,7 @@ fn make_weight_matrices(
     })
 }
 
+#[allow(clippy::float_cmp)]
 fn flip_bit(
     z: &mut Array2<f64>,
     matrices: &mut Vec<Array2<f64>>,
@@ -374,6 +376,7 @@ fn flip_bit(
     result
 }
 
+#[allow(clippy::float_cmp)]
 fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2<f64>> {
     let k1 = y1.ncols();
     let k2 = y2.ncols();
