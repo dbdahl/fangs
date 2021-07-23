@@ -278,9 +278,8 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = r::new_list(4)
-        .protect(&mut pc)
-        .names_gets(["estimate", "loss", "nIterations", "seconds"].into());
+    let list = r::new_list(4).protect(&mut pc);
+    list.names_gets(["estimate", "loss", "nIterations", "seconds"].into());
     list.set_list_element(0, estimate);
     list.set_list_element(1, best_loss.into());
     list.set_list_element(2, iteration_counter.try_into().unwrap());
