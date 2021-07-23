@@ -269,21 +269,21 @@ fn fangs(
             }
         })
         .collect();
-    let (estimate, estimate_slice) = r::new_matrix_real(n_items, columns_to_keep.len()).protect();
+    protect!(pc);
+    let (estimate, estimate_slice) =
+        protect!(pc, r::new_matrix_real(n_items, columns_to_keep.len()));
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = r::new_list(4)
-        .protect()
+    let list = protect!(pc, r::new_list(4))
         .names_gets(["estimate", "loss", "nIterations", "seconds"].into());
     list.set_list_element(0, estimate);
     list.set_list_element(1, best_loss.into());
     list.set_list_element(2, iteration_counter.try_into().unwrap());
     list.set_list_element(3, timer.total_as_secs_f64().into());
-    r::unprotect(2);
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
