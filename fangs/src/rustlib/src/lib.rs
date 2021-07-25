@@ -270,20 +270,22 @@ fn fangs(
         })
         .collect();
     let mut pc = Pc::new();
-    let (estimate, estimate_slice) =
-        r::new_matrix_real(n_items, columns_to_keep.len()).protect(&mut pc);
+    let (estimate, estimate_slice) = r::new_matrix_real(n_items, columns_to_keep.len(), &mut pc);
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = r::new_list(4).protect(&mut pc);
-    list.names_gets(["estimate", "loss", "nIterations", "seconds"].into());
+    let list = r::new_list(4, &mut pc);
+    list.names_gets(Rval::new(
+        ["estimate", "loss", "nIterations", "seconds"],
+        &mut pc,
+    ));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, best_loss.into());
-    list.set_list_element(2, iteration_counter.try_into().unwrap());
-    list.set_list_element(3, timer.total_as_secs_f64().into());
+    list.set_list_element(1, Rval::new(best_loss, &mut pc));
+    list.set_list_element(2, Rval::try_new(iteration_counter, &mut pc).unwrap());
+    list.set_list_element(3, Rval::new(timer.total_as_secs_f64(), &mut pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -303,7 +305,10 @@ fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
     for i in 0..n_samples {
         views.push(make_view(samples.get_list_element(i)));
     }
-    expected_loss_from_samples(make_view(z), &views, &pool).into()
+    Rval::new(
+        expected_loss_from_samples(make_view(z), &views, &pool),
+        &mut Pc::new(),
+    )
 }
 
 #[roxido]
@@ -316,7 +321,7 @@ fn compute_loss(z1: Rval, z2: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    loss.into()
+    Rval::new(loss, &mut Pc::new())
 }
 
 fn matrix_copy_into_column<'a>(
