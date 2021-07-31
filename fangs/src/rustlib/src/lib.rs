@@ -269,14 +269,14 @@ fn fangs(
             }
         })
         .collect();
-    let (estimate, estimate_slice) = r::new_matrix_real(n_items, columns_to_keep.len(), &mut pc);
+    let (estimate, estimate_slice) = Rval::new_matrix_real(n_items, columns_to_keep.len(), &mut pc);
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = r::new_list(4, &mut pc);
+    let list = Rval::new_list(4, &mut pc);
     list.names_gets(Rval::new(
         ["estimate", "loss", "nIterations", "seconds"],
         &mut pc,
