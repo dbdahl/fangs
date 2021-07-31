@@ -269,7 +269,6 @@ fn fangs(
             }
         })
         .collect();
-    let mut pc = Pc::new();
     let (estimate, estimate_slice) = r::new_matrix_real(n_items, columns_to_keep.len(), &mut pc);
     columns_to_keep
         .iter()
@@ -307,7 +306,7 @@ fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
     }
     Rval::new(
         expected_loss_from_samples(make_view(z), &views, &pool),
-        &mut Pc::new(),
+        &mut pc,
     )
 }
 
@@ -321,7 +320,7 @@ fn compute_loss(z1: Rval, z2: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    Rval::new(loss, &mut Pc::new())
+    Rval::new(loss, &mut pc)
 }
 
 fn matrix_copy_into_column<'a>(
