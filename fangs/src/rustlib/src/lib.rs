@@ -14,14 +14,14 @@ use timers::{EchoTimer, PeriodicTimer};
 
 #[roxido]
 fn fangs(
-    samples: Rval,
-    n_iterations: Rval,
-    max_n_features: Rval,
-    n_candidates: Rval,
-    n_bests: Rval,
-    n_cores: Rval,
-    quiet: Rval,
-) -> Rval {
+    samples: Robj,
+    n_iterations: Robj,
+    max_n_features: Robj,
+    n_candidates: Robj,
+    n_bests: Robj,
+    n_cores: Robj,
+    quiet: Robj,
+) -> Robj {
     let mut timer = EchoTimer::new();
     let n_samples = samples.len();
     if n_samples < 1 {
@@ -44,7 +44,7 @@ fn fangs(
             .join("FANGS_STATUS"),
     };
     let o = samples.get_list_element(0);
-    if !o.is_real() || !o.is_matrix() {
+    if !o.is_double() || !o.is_matrix() {
         panic!("All elements of 'samples' must be double matrices.");
     }
     let n_items = o.nrow();
@@ -70,7 +70,7 @@ fn fangs(
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
         let o = samples.get_list_element(i);
-        if !o.is_real() || !o.is_matrix() || o.nrow() != n_items {
+        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
             panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
@@ -269,22 +269,23 @@ fn fangs(
             }
         })
         .collect();
-    let (estimate, estimate_slice) = Rval::new_matrix_real(n_items, columns_to_keep.len(), &mut pc);
+    let (estimate, estimate_slice) =
+        Robj::new_matrix_double(n_items, columns_to_keep.len(), &mut pc);
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(4, &mut pc);
-    list.names_gets(Rval::new(
+    let list = Robj::new_list(4, &mut pc);
+    list.names_gets(Robj::new(
         ["estimate", "loss", "nIterations", "seconds"],
         &mut pc,
     ));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, Rval::new(best_loss, &mut pc));
-    list.set_list_element(2, Rval::try_new(iteration_counter, &mut pc).unwrap());
-    list.set_list_element(3, Rval::new(timer.total_as_secs_f64(), &mut pc));
+    list.set_list_element(1, Robj::new(best_loss, &mut pc));
+    list.set_list_element(2, Robj::try_new(iteration_counter, &mut pc).unwrap());
+    list.set_list_element(3, Robj::new(timer.total_as_secs_f64(), &mut pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -293,7 +294,7 @@ fn fangs(
 }
 
 #[roxido]
-fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
+fn compute_expected_loss(z: Robj, samples: Robj, n_cores: Robj) -> Robj {
     let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
@@ -304,15 +305,15 @@ fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
     for i in 0..n_samples {
         views.push(make_view(samples.get_list_element(i)));
     }
-    Rval::new(
+    Robj::new(
         expected_loss_from_samples(make_view(z), &views, &pool),
         &mut pc,
     )
 }
 
 #[roxido]
-fn compute_loss(z1: Rval, z2: Rval) -> Rval {
-    let loss = if z1.is_real() && z2.is_real() {
+fn compute_loss(z1: Robj, z2: Robj) -> Robj {
+    let loss = if z1.is_double() && z2.is_double() {
         match make_weight_matrix(make_view(z1), make_view(z2)) {
             Some(weight_matrix) => loss(&weight_matrix),
             None => 0.0,
@@ -320,7 +321,7 @@ fn compute_loss(z1: Rval, z2: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    Rval::new(loss, &mut pc)
+    Robj::new(loss, &mut pc)
 }
 
 fn matrix_copy_into_column<'a>(
@@ -333,7 +334,7 @@ fn matrix_copy_into_column<'a>(
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-fn make_view(z: Rval) -> ArrayView2<'static, f64> {
+fn make_view(z: Robj) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.try_into().unwrap()) }
 }
 
