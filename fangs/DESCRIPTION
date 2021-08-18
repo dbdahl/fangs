@@ -5,7 +5,7 @@ Authors@R: c(person(given="David B.",family="Dahl",role=c("aut","cre"),email="da
 Description: A neighborhood-based, gready search algorithm is performed to estimate a feature allocation by minimizing the expected loss based on posterior samples from the feature allocation distribution.
 License: MIT + file LICENSE | Apache License 2.0
 Depends: R (>= 4.0.0)
+SystemRequirements: Cargo (>= 1.53) for installation from sources: see INSTALL file
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
-SystemRequirements: Cargo (>= 1.53) for installation from sources: see file INSTALL
