@@ -6,7 +6,7 @@
 \usage{
 fangs(
   Zs,
-  nIterations = 100,
+  nIterations = 1000,
   maxNFeatures = 0,
   nCandidates = length(Zs),
   nBests = 1,

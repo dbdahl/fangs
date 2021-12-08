@@ -216,12 +216,13 @@ fn fangs(
                 interrupted |= rprint!(
                     "{}",
                     format!(
-                        "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accepts ",
+                        "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accept{}.",
                         iteration_counter,
                         best.5,
                         best.2,
                         best.3 + 1,
                         best.4,
+                        if best.4 == 1 { "" } else { "s" }
                     )
                     .as_str()
                 );
@@ -243,14 +244,15 @@ fn fangs(
         r::flush_console();
     }
     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
-    let (best_z, _, best_loss, candidate_number, n_accepts, _, _) = bests.swap_remove(0);
+    let (best_z, _, best_loss, candidate_number, n_accepts, best_iteration, _) = bests.swap_remove(0);
     if timer.echo() {
         rprint!(
             "{}",
             format!(
-                "Best result is {} from candidate {} after {} accepted proposal{}.\n",
+                "Best result is {} from candidate {} at iteration {} after {} accept{}.\n",
                 best_loss,
-                candidate_number,
+                candidate_number + 1,
+                best_iteration + 1,
                 n_accepts,
                 if n_accepts == 1 { "" } else { "s" }
             )
@@ -277,15 +279,17 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(4, &mut pc);
+    let list = Rval::new_list(6, &mut pc);
     list.names_gets(Rval::new(
-        ["estimate", "loss", "nIterations", "seconds"],
+        ["estimate", "loss", "iteration", "nIterations", "seconds", "whichBest"],
         &mut pc,
     ));
     list.set_list_element(0, estimate);
     list.set_list_element(1, Rval::new(best_loss, &mut pc));
-    list.set_list_element(2, Rval::try_new(iteration_counter, &mut pc).unwrap());
-    list.set_list_element(3, Rval::new(timer.total_as_secs_f64(), &mut pc));
+    list.set_list_element(2, Rval::new(best_iteration as i32, &mut pc));
+    list.set_list_element(3, Rval::try_new(iteration_counter, &mut pc).unwrap());
+    list.set_list_element(4, Rval::new(timer.total_as_secs_f64(), &mut pc));
+    list.set_list_element(5, Rval::new((candidate_number + 1) as i32, &mut pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
