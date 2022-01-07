@@ -4,22 +4,28 @@
 \alias{compute_loss}
 \title{Compute the Loss for Two Feature Allocations}
 \usage{
-compute_loss(Z1, Z2)
+compute_loss(Z1, Z2, augmented = FALSE)
 }
 \arguments{
 \item{Z1}{something}
 
 \item{Z2}{something}
+
+\item{augmented}{Should the permutations also be provided?}
 }
 \value{
-The loss as a scalar value.
+The loss as a scalar value if \code{augmented = FALSE} else a list with additional information.
 }
 \description{
 The loss between two feature allocations is computed.
 }
 \examples{
-Z1 <- matrix(c(0,0,0,0,0,0,0,0,1,0,0,1), byrow=TRUE, nrow=6)
-Z2 <- matrix(c(0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0), byrow=TRUE, nrow=6)
+Z1 <- matrix(c(0,1,1,0,1,1,0,1,1,1,1,1), byrow=TRUE, nrow=6)
+Z2 <- matrix(c(0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0), byrow=TRUE, nrow=6)
 compute_loss(Z1,Z2)
+x <- compute_loss(Z1,Z2,TRUE)
+sum(cbind(Z1,0) != Z2)
+sum(cbind(Z1,0)[,x$permutation1] != Z2)
+sum(cbind(Z1,0) != Z2[,x$permutation2])
 
 }

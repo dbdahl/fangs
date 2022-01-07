@@ -244,7 +244,8 @@ fn fangs(
         r::flush_console();
     }
     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
-    let (best_z, _, best_loss, candidate_number, n_accepts, best_iteration, _) = bests.swap_remove(0);
+    let (best_z, _, best_loss, candidate_number, n_accepts, best_iteration, _) =
+        bests.swap_remove(0);
     if timer.echo() {
         rprint!(
             "{}",
@@ -281,7 +282,14 @@ fn fangs(
         });
     let list = Rval::new_list(6, &mut pc);
     list.names_gets(Rval::new(
-        ["estimate", "loss", "iteration", "nIterations", "seconds", "whichBest"],
+        [
+            "estimate",
+            "loss",
+            "iteration",
+            "nIterations",
+            "seconds",
+            "whichBest",
+        ],
         &mut pc,
     ));
     list.set_list_element(0, estimate);
@@ -326,6 +334,33 @@ fn compute_loss(z1: Rval, z2: Rval) -> Rval {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
     Rval::new(loss, &mut pc)
+}
+
+#[roxido]
+fn compute_loss_augmented(z1: Rval, z2: Rval) -> Rval {
+    let (loss, mut solution) = if z1.is_double() && z2.is_double() {
+        match make_weight_matrix(make_view(z1), make_view(z2)) {
+            Some(weight_matrix) => {
+                let solution = lapjv::lapjv(&weight_matrix).unwrap();
+                (lapjv::cost(&weight_matrix, &solution.0), solution)
+            }
+            None => (0.0, (vec![], vec![])),
+        }
+    } else {
+        panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+    };
+    for x in solution.0.iter_mut() {
+        *x += 1;
+    }
+    for x in solution.1.iter_mut() {
+        *x += 1;
+    }
+    let list = Rval::new_list(3, &mut pc);
+    list.names_gets(Rval::new(["loss", "permutation1", "permutation2"], &mut pc));
+    list.set_list_element(0, Rval::new(loss, &mut pc));
+    list.set_list_element(1, Rval::try_new(&solution.1[..], &mut pc).unwrap());
+    list.set_list_element(2, Rval::try_new(&solution.0[..], &mut pc).unwrap());
+    list
 }
 
 fn matrix_copy_into_column<'a>(

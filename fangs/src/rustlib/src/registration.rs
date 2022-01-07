@@ -19,6 +19,11 @@ fn compute_expected_loss(Z: Rval, Zs: Rval, nCores: Rval) -> Rval {
 }
 
 #[roxido]
+fn compute_loss_augmented(Z1: Rval, Z2: Rval) -> Rval {
+    Rval::nil()
+}
+
+#[roxido]
 fn compute_loss(Z1: Rval, Z2: Rval) -> Rval {
     Rval::nil()
 }
@@ -33,13 +38,19 @@ use roxido::*;
 
 #[no_mangle]
 extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
-    let mut call_routines = Vec::with_capacity(3);
-    let mut _names: Vec<std::ffi::CString> = Vec::with_capacity(3);
+    let mut call_routines = Vec::with_capacity(4);
+    let mut _names: Vec<std::ffi::CString> = Vec::with_capacity(4);
     _names.push(std::ffi::CString::new(".compute_expected_loss").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {
         name: _names.last().unwrap().as_ptr(),
         fun: unsafe { std::mem::transmute(crate::compute_expected_loss as *const u8) },
         numArgs: 3,
+    });
+    _names.push(std::ffi::CString::new(".compute_loss_augmented").unwrap());
+    call_routines.push(rbindings::R_CallMethodDef {
+        name: _names.last().unwrap().as_ptr(),
+        fun: unsafe { std::mem::transmute(crate::compute_loss_augmented as *const u8) },
+        numArgs: 2,
     });
     _names.push(std::ffi::CString::new(".compute_loss").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {
@@ -69,4 +80,5 @@ extern "C" fn R_init_fangs_librust(info: *mut rbindings::DllInfo) {
         rbindings::R_useDynamicSymbols(info, 1);
         rbindings::R_forceSymbols(info, 1);
     }
+    roxido::r::set_custom_panic_hook();
 }
