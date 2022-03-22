@@ -1,12 +1,12 @@
-#' Compute the Loss for Two Feature Allocations
+#' Compute the Loss Between Feature Allocations
 #'
-#' The loss between two feature allocations is computed.
+#' The FARO loss is computed between two feature allocations in binary matrix form.
 #'
-#' @param Z1 something
-#' @param Z2 something
-#' @param augmented Should the permutations also be provided?
+#' @param Z1 A feature allocation object in binary matrix form.
+#' @param Z2 A feature allocation object in binary matrix form.
+#' @param augmented If \code{TRUE}, the column permutation (used by FARO loss to compare the feature allocations) is returned for each matrix.
 #'
-#' @return The loss as a scalar value if `augmented = FALSE` else a list with additional information.
+#' @return The loss as a scalar value if `augmented = FALSE`, otherwise, a list of 3 elements including the loss and the two column permutations.
 #'
 #' @export
 #' @examples

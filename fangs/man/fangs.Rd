@@ -5,19 +5,19 @@
 \title{Feature Allocation Neighborhood Greedy Search}
 \usage{
 fangs(
-  Zs,
+  samples,
   nIterations = 1000,
   maxNFeatures = 0,
-  nCandidates = length(Zs),
+  nCandidates = length(samples),
   nBests = 1,
   nCores = 0,
   quiet = FALSE
 )
 }
 \arguments{
-\item{Zs}{something}
+\item{samples}{An object of class 'list' containing posterior samples from a feature allocation distribution in binary matrix form.}
 
-\item{nIterations}{The number of iterations (i.e., proposed changes) to consider.}
+\item{nIterations}{The number of iterations (i.e., proposed changes) to consider per proposed estimate.}
 
 \item{maxNFeatures}{The maximum number of features that can be considered by
 the optimization algorithm, which has important implications for the
@@ -25,27 +25,27 @@ interpretability of the resulting feature allocation. If the supplied value
 is zero, there is no constraint.}
 
 \item{nCandidates}{The number of feature allocations from the provided samples
-in \code{Zs} to use to seed the algorithm.}
+in \code{Z} for which the expected loss is estimated.}
 
-\item{nBests}{Among \code{nCandidates} feature allocations, how many should be
-sweetened when searching for the best estimate.}
+\item{nBests}{The number of samples among \code{nCandidates} feature allocations which are chosen (by lowest expected loss) to be tuned in the sweetening phase.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous runs at any given time. A value of zero indicates to use all
 cores on the system.}
 
-\item{quiet}{Suppress intermediate status reporting?}
+\item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.}
 }
 \value{
-A list of the following elements.  \emph{This needs to be updated}:
+A list of the following elements:
 \itemize{
-\item Z - The letters of the alphabet.
-\item bestDraw - A vector of numbers.
-\item loss - A vector of numbers.
-\item best - A vector of numbers.
-\item k - A vector of numbers.
-\item probFlip - A vector of numbers.
-\item iter - A vector of numbers.
+\item estimate - The feature allocation estimate in binary matrix form.
+\item loss - The estimated expected loss of the estimate.
+\item iteration - The iteration number (out of \code{nIterations}) at which the estimate was found.
+\item seconds - The elapsed time of the entire algorithm.
+\item whichBest - The proposal number (out of \code{nBests}) from which the estimate was found.
+\item nBests - The original supplied value of \code{nBests}.
+\item nCandidates - The original supplied value of \code{nCandidates}.
+\item maxNFeatures - The original supplied value of \code{maxNFeatures}.
 }
 }
 \description{
@@ -53,6 +53,9 @@ An implementation of the feature allocation greedy search algorithm is
 provided.
 }
 \examples{
-1 + 3
+# To reduce load on CRAN servers, limit the number of iterations, but not necessary in practice.
+data(samplesFA)
+fangs(samplesFA, nIterations=100)
+fangs(samplesFA, nIterations=50, nCandidates=length(samplesFA)/2, nBests=3, quiet=TRUE)
 
 }

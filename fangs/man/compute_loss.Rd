@@ -2,22 +2,22 @@
 % Please edit documentation in R/compute_loss.R
 \name{compute_loss}
 \alias{compute_loss}
-\title{Compute the Loss for Two Feature Allocations}
+\title{Compute the Loss Between Feature Allocations}
 \usage{
 compute_loss(Z1, Z2, augmented = FALSE)
 }
 \arguments{
-\item{Z1}{something}
+\item{Z1}{A feature allocation object in binary matrix form.}
 
-\item{Z2}{something}
+\item{Z2}{A feature allocation object in binary matrix form.}
 
-\item{augmented}{Should the permutations also be provided?}
+\item{augmented}{If \code{TRUE}, the column permutation (used by FARO loss to compare the feature allocations) is returned for each matrix.}
 }
 \value{
-The loss as a scalar value if \code{augmented = FALSE} else a list with additional information.
+The loss as a scalar value if \code{augmented = FALSE}, otherwise, a list of 3 elements including the loss and the two column permutations.
 }
 \description{
-The loss between two feature allocations is computed.
+The FARO loss is computed between two feature allocations in binary matrix form.
 }
 \examples{
 Z1 <- matrix(c(0,1,1,0,1,1,0,1,1,1,1,1), byrow=TRUE, nrow=6)
