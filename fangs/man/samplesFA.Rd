@@ -18,7 +18,8 @@ The purpose of the model was to use pairwise distance information to identify an
 Alzheimer's disease in patients.
 }
 \references{
-Warr et al. (2021) Bayesian Analysis 1-37
-(\href{https://projecteuclid.org/journals/bayesian-analysis/advance-publication/The-Attraction-Indian-Buffet-Distribution/10.1214/21-BA1279.full}{Bayesian Analysis})
+R. L. Warr, D. B. Dahl, J. M. Meyer, A. Lui (2021),
+The Attraction Indian Buffet Distribution, Bayesian Analysis Advance Publication 1 - 37,
+\url{https://doi.org/10.1214/21-BA1279}.
 }
 \keyword{datasets}

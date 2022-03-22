@@ -3,5 +3,4 @@
 export(compute_expected_loss)
 export(compute_loss)
 export(fangs)
-export(fangs_old)
 useDynLib(fangs, .registration = TRUE)

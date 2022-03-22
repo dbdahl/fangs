@@ -10,8 +10,10 @@
 #'
 #' @usage data(samplesFA)
 #'
-#' @references Warr et al. (2021) Bayesian Analysis 1-37
-#' (\href{https://projecteuclid.org/journals/bayesian-analysis/advance-publication/The-Attraction-Indian-Buffet-Distribution/10.1214/21-BA1279.full}{Bayesian Analysis})
+#' @references
+#' R. L. Warr, D. B. Dahl, J. M. Meyer, A. Lui (2021),
+#' The Attraction Indian Buffet Distribution, Bayesian Analysis Advance Publication 1 - 37,
+#' <https://doi.org/10.1214/21-BA1279>.
 #'
 #'
 "samplesFA"
