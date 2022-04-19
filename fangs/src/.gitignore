@@ -1,3 +1,3 @@
-/*.so
-/*.o
-/staticlib.tar.gz
+*.so
+*.o
+*.a

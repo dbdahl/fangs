@@ -20,6 +20,6 @@ Alzheimer's disease in patients.
 \references{
 R. L. Warr, D. B. Dahl, J. M. Meyer, A. Lui (2021),
 The Attraction Indian Buffet Distribution, Bayesian Analysis Advance Publication 1 - 37,
-\url{https://doi.org/10.1214/21-BA1279}.
+\doi{10.1214/21-BA1279}.
 }
 \keyword{datasets}

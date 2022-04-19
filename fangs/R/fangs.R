@@ -33,8 +33,12 @@
 #' @examples
 #' # To reduce load on CRAN servers, limit the number of iterations, but not necessary in practice.
 #' data(samplesFA)
+#' # R_CARGO \dontrun{
+#' # R_CARGO # Example disabled since Cargo was not found when installing from source package.
+#' # R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 #' fangs(samplesFA, nIterations=100)
 #' fangs(samplesFA, nIterations=50, nCandidates=length(samplesFA)/2, nBests=3, quiet=TRUE)
+#' # R_CARGO }
 #'
 fangs <- function(samples, nIterations=1000, maxNFeatures=0, nCandidates=length(samples), nBests=1, nCores=0, quiet=FALSE) {
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
