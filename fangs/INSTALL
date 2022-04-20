@@ -6,8 +6,8 @@ preferred because the Cargo installation is automatically updated as needed.
 
 If a suitable version of Cargo is not available when installing the source
 package (e.g., a particular CRAN build server is missing Cargo), the Rust
-source code is embedded in the binary package and examples are wrapped in
-\dontrun because they will not work "out-of-the-box". Instead, the end-user of
-the binary package can provide Cargo and the examples will indeed work. Again,
-the easiest way to provide Cargo is to run cargo::install() in an interactive
-session.
+source code is embedded in the binary package and parts of some examples may be
+wrapped in \dontrun because they will not work "out-of-the-box". Instead, the
+end-user of the binary package can provide Cargo and the examples will indeed
+work. Again, the easiest way to provide Cargo is to run cargo::install() in an
+interactive session.
