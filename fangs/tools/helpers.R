@@ -36,5 +36,5 @@ deregister <- function() {
     lines <- readLines("NAMESPACE")
     lines <- lines[!grepl("useDynLib", lines, fixed=TRUE)]
     writeLines(lines, "NAMESPACE")
-    file.rename("tools/registration.R", "R")
+    file.rename("tools/registration.R", "R/registration.R")
 }
