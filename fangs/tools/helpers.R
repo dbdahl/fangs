@@ -1,15 +1,16 @@
 # Assumes working directory is package root.
 make_Rd_from_template <- function(shlib) {
-    rdfiles <- list.files("man")
+    pattern <- "^#\\s*R_CARGO\\s*(.*)"
+    rdfiles <- list.files("man", full.names=TRUE)
     for ( rdfile in rdfiles ) {
-        pattern <- "^#\\s*R_CARGO\\s*(.*)"
-        lines <- readLines(paste0("man/",rdfile))
+        if ( dir.exists(rdfile) ) next
+        lines <- readLines(rdfile)
         lines <- if ( shlib ) {
             lines[!grepl(pattern, lines)]
         } else {
             sub(pattern,"\\1",lines)
         }
-        writeLines(lines, paste0("man/",rdfile))
+        writeLines(lines, rdfile)
     }
 }
 
