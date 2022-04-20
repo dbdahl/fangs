@@ -1,4 +1,4 @@
 .Rhistory
 .Rproj.user
-fangs.Rcheck
+*.Rcheck
 fangs_*.tar.gz
