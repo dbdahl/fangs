@@ -4,13 +4,13 @@
 #' in binary matrix form.
 #'
 #' @param Z1 A feature allocation in binary matrix form, with items in the rows
-#'   and feature allocations in the columns.
+#'   and features in the columns.
 #' @param Z2 A feature allocation in binary matrix form, with items in the rows
-#'   and feature allocations in the columns.
+#'   and features in the columns.
 #' @param augmented If \code{TRUE}, the column permutation (used by FARO loss to
 #'   compare the feature allocations) is returned for each matrix.
 #'
-#' @return The loss as a scalar value if `augmented = FALSE`, otherwise, a list
+#' @return The FARO loss as a scalar value if `augmented = FALSE`, otherwise, a list
 #'   of 3 elements including the loss and the two column permutations.
 #'
 #' @export

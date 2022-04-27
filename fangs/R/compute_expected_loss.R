@@ -4,7 +4,7 @@
 #'
 #' @inheritParams fangs
 #' @param Z A feature allocation in binary matrix form, with items in
-#'   the rows and feature allocations in the columns.
+#'   the rows and features in the columns.
 #'
 #' @return The estimated expected FARO loss as a scalar value.
 #'

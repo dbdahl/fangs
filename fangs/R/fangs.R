@@ -4,17 +4,17 @@
 #' provided.
 #'
 #' @param samples An object of class \sQuote{list} containing posterior samples
-#'   from a feature allocation distribution. Each list elements encodes one
-#'   feature allocation as an binary matrix, with items in the rows and feature
-#'   allocations in the columns.
+#'   from a feature allocation distribution. Each list element encodes one
+#'   feature allocation as a binary matrix, with items in the rows and features
+#'   in the columns.
 #' @param nIterations The number of iterations (i.e., proposed changes) to
-#'   consider per candidate in the sweetening phase.
+#'   consider per draw in the sweetening phase.
 #' @param maxNFeatures The maximum number of features that can be considered by
 #'   the optimization algorithm, which has important implications for the
 #'   interpretability of the resulting feature allocation. If the supplied value
 #'   is zero, there is no constraint.
-#' @param nCandidates The number of feature allocations (from the provided
-#'   samples in \code{samples}) to randomly select, score, and optimize.
+#' @param nCandidates The number of feature allocations (from the list provided
+#'   in \code{samples}) to randomly select and score.
 #' @param nBests The number of feature allocations among \code{nCandidates}
 #'   which are chosen (by lowest expected loss) to be optimized in the
 #'   sweetening phase.
@@ -25,11 +25,11 @@
 #'
 #' @return A list with the following elements:
 #' \itemize{
-#'   \item estimate - The feature allocation estimate in binary matrix form.
-#'   \item loss - The estimated expected loss of the estimate.
-#'   \item iteration - The iteration number (out of \code{nIterations}) at which the estimate was found.
+#'   \item estimate - The feature allocation point estimate in binary matrix form.
+#'   \item loss - The estimated expected FARO loss of the point estimate.
+#'   \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
 #'   \item seconds - The elapsed time of the entire algorithm.
-#'   \item whichBest - The proposal number (out of \code{nBests}) from which the estimate was found.
+#'   \item whichBest - The proposal number (out of \code{nBests}) from which the point estimate was found.
 #'   \item nBests - The original supplied value of \code{nBests}.
 #'   \item nCandidates - The original supplied value of \code{nCandidates}.
 #'   \item maxNFeatures - The original supplied value of \code{maxNFeatures}.
