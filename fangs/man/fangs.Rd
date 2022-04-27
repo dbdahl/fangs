@@ -9,34 +9,40 @@ fangs(
   nIterations = 1000,
   maxNFeatures = 0,
   nCandidates = length(samples),
-  nBests = 1,
+  nBests = nCores,
   nCores = 0,
   quiet = FALSE
 )
 }
 \arguments{
-\item{samples}{An object of class 'list' containing posterior samples from a feature allocation distribution in binary matrix form.}
+\item{samples}{An object of class \sQuote{list} containing posterior samples
+from a feature allocation distribution. Each list elements encodes one
+feature allocation as an binary matrix, with items in the rows and feature
+allocations in the columns.}
 
-\item{nIterations}{The number of iterations (i.e., proposed changes) to consider per proposed estimate.}
+\item{nIterations}{The number of iterations (i.e., proposed changes) to
+consider per candidate in the sweetening phase.}
 
 \item{maxNFeatures}{The maximum number of features that can be considered by
 the optimization algorithm, which has important implications for the
 interpretability of the resulting feature allocation. If the supplied value
 is zero, there is no constraint.}
 
-\item{nCandidates}{The number of feature allocations from the provided samples
-in \code{Z} for which the expected loss is estimated.}
+\item{nCandidates}{The number of feature allocations (from the provided
+samples in \code{samples}) to randomly select, score, and optimize.}
 
-\item{nBests}{The number of samples among \code{nCandidates} feature allocations which are chosen (by lowest expected loss) to be tuned in the sweetening phase.}
+\item{nBests}{The number of feature allocations among \code{nCandidates}
+which are chosen (by lowest expected loss) to be optimized in the
+sweetening phase.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
-simultaneous runs at any given time. A value of zero indicates to use all
-cores on the system.}
+simultaneous calculations at any given time. A value of zero indicates to
+use all cores on the system.}
 
 \item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.}
 }
 \value{
-A list of the following elements:
+A list with the following elements:
 \itemize{
 \item estimate - The feature allocation estimate in binary matrix form.
 \item loss - The estimated expected loss of the estimate.
@@ -53,13 +59,13 @@ An implementation of the feature allocation greedy search algorithm is
 provided.
 }
 \examples{
-# To reduce load on CRAN servers, limit the number of iterations, but not necessary in practice.
+# To reduce load on CRAN testing servers, limit the number of iterations.
 data(samplesFA)
 # R_CARGO \dontrun{
 # R_CARGO # Example disabled since Cargo was not found when installing from source package.
 # R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
-fangs(samplesFA, nIterations=100)
-fangs(samplesFA, nIterations=50, nCandidates=length(samplesFA)/2, nBests=3, quiet=TRUE)
+fangs(samplesFA, nIterations=100, nCores=2)
+fangs(samplesFA, nIterations=50, nCandidates=length(samplesFA)/2, nBests=3, nCores=2, quiet=TRUE)
 # R_CARGO }
 
 }

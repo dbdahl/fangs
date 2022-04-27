@@ -7,13 +7,17 @@
 compute_expected_loss(samples, Z, nCores = 0)
 }
 \arguments{
-\item{samples}{An object of class 'list' containing posterior samples from a feature allocation distribution in binary matrix form.}
+\item{samples}{An object of class \sQuote{list} containing posterior samples
+from a feature allocation distribution. Each list elements encodes one
+feature allocation as an binary matrix, with items in the rows and feature
+allocations in the columns.}
 
-\item{Z}{A single feature allocation object in binary matrix form.}
+\item{Z}{A feature allocation in binary matrix form, with items in
+the rows and feature allocations in the columns.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
-simultaneous runs at any given time. A value of zero indicates to use all
-cores on the system.}
+simultaneous calculations at any given time. A value of zero indicates to
+use all cores on the system.}
 }
 \value{
 The estimated expected FARO loss as a scalar value.

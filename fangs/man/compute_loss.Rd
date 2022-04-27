@@ -2,22 +2,27 @@
 % Please edit documentation in R/compute_loss.R
 \name{compute_loss}
 \alias{compute_loss}
-\title{Compute the Loss Between Feature Allocations}
+\title{Compute the FARO Loss Between Feature Allocations}
 \usage{
 compute_loss(Z1, Z2, augmented = FALSE)
 }
 \arguments{
-\item{Z1}{A feature allocation object in binary matrix form.}
+\item{Z1}{A feature allocation in binary matrix form, with items in the rows
+and feature allocations in the columns.}
 
-\item{Z2}{A feature allocation object in binary matrix form.}
+\item{Z2}{A feature allocation in binary matrix form, with items in the rows
+and feature allocations in the columns.}
 
-\item{augmented}{If \code{TRUE}, the column permutation (used by FARO loss to compare the feature allocations) is returned for each matrix.}
+\item{augmented}{If \code{TRUE}, the column permutation (used by FARO loss to
+compare the feature allocations) is returned for each matrix.}
 }
 \value{
-The loss as a scalar value if \code{augmented = FALSE}, otherwise, a list of 3 elements including the loss and the two column permutations.
+The loss as a scalar value if \code{augmented = FALSE}, otherwise, a list
+of 3 elements including the loss and the two column permutations.
 }
 \description{
-The FARO loss is computed between two feature allocations in binary matrix form.
+The FARO loss is computed between two feature allocations, each represented
+in binary matrix form.
 }
 \examples{
 Z1 <- matrix(c(0,1,1,0,1,1,0,1,1,1,1,1), byrow=TRUE, nrow=6)

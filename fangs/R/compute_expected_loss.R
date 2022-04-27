@@ -2,11 +2,9 @@
 #'
 #' A Monte Carlo estimate of the expected FARO loss is computed for a feature allocation given a set of posterior samples.
 #'
-#' @param samples An object of class 'list' containing posterior samples from a feature allocation distribution in binary matrix form.
-#' @param Z A single feature allocation object in binary matrix form.
-#' @param nCores The number of CPU cores to use, i.e., the number of
-#'   simultaneous runs at any given time. A value of zero indicates to use all
-#'   cores on the system.
+#' @inheritParams fangs
+#' @param Z A feature allocation in binary matrix form, with items in
+#'   the rows and feature allocations in the columns.
 #'
 #' @return The estimated expected FARO loss as a scalar value.
 #'
