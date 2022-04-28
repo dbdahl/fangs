@@ -325,11 +325,45 @@ fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
 
 #[roxido]
 fn compute_loss(z1: Rval, z2: Rval) -> Rval {
-    let loss = if z1.is_double() && z2.is_double() {
+    let loss = if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
         match make_weight_matrix(make_view(z1), make_view(z2)) {
             Some(weight_matrix) => loss(&weight_matrix),
             None => 0.0,
         }
+    } else {
+        panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+    };
+    Rval::new(loss, &mut pc)
+}
+
+#[roxido]
+fn compute_loss_permutations(z1: Rval, z2: Rval) -> Rval {
+    use itertools::Itertools;
+    let loss = if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
+        let v1 = make_view(z1);
+        let v2 = make_view(z2);
+        let zero = Array1::zeros(v1.nrows());
+        let zero_view = zero.view();
+        let k = v1.ncols().max(v2.ncols());
+        (0..k).permutations(k).map(|permutation| {
+            let mut loss = 0;
+            for i in 0..k {
+                let c1 = if i >= v1.ncols() {
+                    zero_view
+                } else {
+                    v1.column(i)
+                };
+                let j = permutation[i];
+                let c2 = if j >= v2.ncols() {
+                    zero_view
+                } else {
+                    v2.column(j)
+                };
+                let a = std::iter::zip(c1, c2);
+                loss += a.fold(0, |sum, (&x1,&x2)| sum + if x1!=x2 {1} else {0});
+            }
+            loss
+        }).min().unwrap()
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
