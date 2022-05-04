@@ -9,7 +9,7 @@ fangs(
   nIterations = 1000,
   maxNFeatures = 0,
   nCandidates = length(samples),
-  nBests = nCores,
+  nBests = 4,
   nCores = 0,
   quiet = FALSE
 )

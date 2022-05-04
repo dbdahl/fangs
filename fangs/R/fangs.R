@@ -46,7 +46,7 @@
 #' fangs(samplesFA, nIterations=50, nCandidates=length(samplesFA)/2, nBests=3, nCores=2, quiet=TRUE)
 #' # R_CARGO }
 #'
-fangs <- function(samples, nIterations=1000, maxNFeatures=0, nCandidates=length(samples), nBests=nCores, nCores=0, quiet=FALSE) {
+fangs <- function(samples, nIterations=1000, maxNFeatures=0, nCandidates=length(samples), nBests=4, nCores=0, quiet=FALSE) {
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
   result <- .Call(.fangs, samples, nIterations, maxNFeatures, nCandidates, nBests, nCores, quiet)
   c(result, nBests=nBests, nCandidates=nCandidates, maxNFeatures=maxNFeatures)
