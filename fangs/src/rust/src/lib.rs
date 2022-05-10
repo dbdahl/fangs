@@ -172,6 +172,7 @@ fn fangs(
         );
         r::flush_console();
     }
+    let seconds_in_initialization = timer.total_as_secs_f64();
     let threshold_in_secs = 1.0;
     let mut period_timer = PeriodicTimer::new(threshold_in_secs);
     let mut iteration_counter = 0;
@@ -280,14 +281,15 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(6, &mut pc);
+    let list = Rval::new_list(7, &mut pc);
     list.names_gets(Rval::new(
         [
             "estimate",
             "loss",
             "iteration",
             "nIterations",
-            "seconds",
+            "secondsInitialization",
+            "secondsSweetening",
             "whichBest",
         ],
         &mut pc,
@@ -296,8 +298,10 @@ fn fangs(
     list.set_list_element(1, Rval::new(best_loss, &mut pc));
     list.set_list_element(2, Rval::new(best_iteration as i32, &mut pc));
     list.set_list_element(3, Rval::try_new(iteration_counter, &mut pc).unwrap());
-    list.set_list_element(4, Rval::new(timer.total_as_secs_f64(), &mut pc));
-    list.set_list_element(5, Rval::new((candidate_number + 1) as i32, &mut pc));
+    list.set_list_element(4, Rval::new(seconds_in_initialization, &mut pc));
+    list.set_list_element(6, Rval::new((candidate_number + 1) as i32, &mut pc));
+    let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
+    list.set_list_element(5, Rval::new(seconds_in_sweetening, &mut pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
