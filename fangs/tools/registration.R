@@ -4,3 +4,4 @@
 .compute_loss <- NULL
 .compute_loss_permutations <- NULL
 .fangs <- NULL
+.sweeten <- NULL

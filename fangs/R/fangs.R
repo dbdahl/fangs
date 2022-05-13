@@ -28,7 +28,8 @@
 #'   \item estimate - The feature allocation point estimate in binary matrix form.
 #'   \item loss - The estimated expected FARO loss of the point estimate.
 #'   \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
-#'   \item seconds - The elapsed time of the entire algorithm.
+#'   \item secondsInitialization - The elapsed time in the initialization phrase.
+#'   \item secondsSweetening - The elapsed time in the sweetening phrase.
 #'   \item whichBest - The proposal number (out of \code{nBests}) from which the point estimate was found.
 #'   \item nBests - The original supplied value of \code{nBests}.
 #'   \item nCandidates - The original supplied value of \code{nCandidates}.

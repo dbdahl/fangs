@@ -375,6 +375,285 @@ fn compute_loss_permutations(z1: Rval, z2: Rval) -> Rval {
 }
 
 #[roxido]
+fn sweeten(
+    candidates: Rval,
+    samples: Rval,
+    n_iterations: Rval,
+    n_cores: Rval,
+    quiet: Rval,
+) -> Rval {
+    let mut timer = EchoTimer::new();
+    let n_candidates = candidates.len();
+    if n_candidates < 1 {
+        panic!("Number of candidates must be at least one.");
+    }
+    let n_samples = samples.len();
+    if n_samples < 1 {
+        panic!("Number of samples must be at least one.");
+    }
+    let n_iterations = n_iterations.as_usize();
+    let n_cores = n_cores.as_usize();
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(n_cores)
+        .build()
+        .unwrap();
+    let quiet = quiet.as_bool();
+    let status_file = match std::env::var("FANGS_STATUS") {
+        Ok(x) => Path::new(x.as_str()).to_owned(),
+        _ => std::env::current_dir()
+            .unwrap_or_default()
+            .join("FANGS_STATUS"),
+    };
+    let n_items = {
+        let o = candidates.get_list_element(0);
+        if !o.is_double() || !o.is_matrix() {
+            panic!("All elements of 'candidates' must be double matrices.");
+        }
+        let n_items = o.nrow();
+        let o = samples.get_list_element(0);
+        if !o.is_double() || !o.is_matrix() {
+            panic!("All elements of 'samples' must be double matrices.");
+        }
+        if o.nrow() != n_items {
+            panic!("Inconsistent number of rows in 'candidates' and 'samples'.");
+        }
+        n_items
+    };
+    let mut max_n_features_observed = 0;
+    let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
+    let mut interrupted = false;
+    if timer.echo() {
+        interrupted |= rprint!(
+            "{}",
+            timer
+                .stamp(
+                    format!(
+                        "Parsed parameters and using {} threads.\n",
+                        pool.current_num_threads()
+                    )
+                    .as_str(),
+                )
+                .unwrap()
+                .as_str()
+        );
+        r::flush_console();
+    }
+    let mut candidates_ = Vec::with_capacity(n_candidates);
+    for i in 0..n_candidates {
+        let o = candidates.get_list_element(i);
+        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
+            panic!("All elements of 'candidates' must be double matrices with a consistent number of rows.");
+        }
+        let candidate = make_view(o).to_owned();
+        candidates_.push(candidate);
+    }
+    let mut views = Vec::with_capacity(n_samples);
+    for i in 0..n_samples {
+        let o = samples.get_list_element(i);
+        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
+            panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
+        }
+        let view = make_view(o);
+        max_n_features_observed += max_n_features_observed.max(view.ncols());
+        views.push(view);
+    }
+    if timer.echo() {
+        interrupted |= rprint!(
+            "{}",
+            timer.stamp("Made data structures.\n").unwrap().as_str()
+        );
+        r::flush_console();
+    }
+    let candidates_with_rngs: Vec<_> =  candidates_.into_iter()
+            .map(|candidate_view| {
+                let mut seed = [0_u8; 16];
+                rng.fill_bytes(&mut seed);
+                let new_rng = Pcg64Mcg::from_seed(seed);
+                (candidate_view, new_rng)
+            })
+            .collect();
+    if timer.echo() {
+        interrupted |= rprint!(
+            "{}",
+            timer.stamp("Selected all candidates.\n").unwrap().as_str()
+        );
+        r::flush_console();
+    }
+    let mut candidates_with_losses_and_rngs = Vec::with_capacity(candidates_with_rngs.len());
+    for (z, rng) in candidates_with_rngs {
+        if interrupted || r::check_user_interrupt() {
+            panic!("Caught user interrupt before main loop, so aborting.");
+        }
+        let loss = expected_loss_from_samples(z.view(), &views, &pool);
+        candidates_with_losses_and_rngs.push((z, loss, rng));
+    }
+    if timer.echo() {
+        interrupted |= rprint!(
+            "{}",
+            timer
+                .stamp("Computed expected loss for all candidates.\n")
+                .unwrap()
+                .as_str()
+        );
+        r::flush_console();
+    }
+    let mut bests: Vec<_> = pool.install(|| {
+        candidates_with_losses_and_rngs
+            .into_par_iter()
+            .enumerate()
+            .map(|(id, (z, loss, rng))| {
+                let weight_matrices = make_weight_matrices(z.view(), &views, &pool);
+                let n_accepts = 0;
+                let when = 1;
+                (z, weight_matrices, loss, id, n_accepts, when, rng)
+            })
+            .collect()
+    });
+    if timer.echo() {
+        interrupted |= rprint!(
+            "{}",
+            timer
+                .stamp("Computed weight matrices for bests.\n")
+                .unwrap()
+                .as_str()
+        );
+        r::flush_console();
+    }
+    let threshold_in_secs = 1.0;
+    let mut period_timer = PeriodicTimer::new(threshold_in_secs);
+    let mut iteration_counter = 0;
+    while iteration_counter < n_iterations {
+        iteration_counter += 1;
+        pool.install(|| {
+            bests
+                .par_iter_mut()
+                .for_each(|(z, weight_matrices, loss, _, n_accepts, when, rng)| {
+                    let n_features = z.ncols();
+                    let total_length = n_items * n_features;
+                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                        [index / ncols, index % ncols]
+                    }
+                    let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                    flip_bit(z, weight_matrices, index, &views);
+                    let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
+                    if new_loss < *loss {
+                        *n_accepts += 1;
+                        *when = iteration_counter;
+                        *loss = new_loss;
+                    } else {
+                        flip_bit(z, weight_matrices, index, &views);
+                    }
+                });
+        });
+        if !quiet || status_file.exists() {
+            period_timer.maybe(iteration_counter == n_iterations, || {
+                if quiet && status_file.exists() {
+                    interrupted |= rprint!(
+                        "{}",
+                        format!(
+                            "*** {} exists, so forcing status display.\n",
+                            status_file.display()
+                        )
+                        .as_str()
+                    );
+                    r::flush_console();
+                }
+                bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
+                let best = bests.first().unwrap();
+                interrupted |= rprint!(
+                    "{}",
+                    format!(
+                        "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accept{}.",
+                        iteration_counter,
+                        best.5,
+                        best.2,
+                        best.3 + 1,
+                        best.4,
+                        if best.4 == 1 { "" } else { "s" }
+                    )
+                    .as_str()
+                );
+                r::flush_console();
+            });
+        }
+        if interrupted || r::check_user_interrupt() {
+            rprint!("\nCaught user interrupt, so breaking out early.");
+            r::flush_console();
+            break;
+        }
+    }
+    if !quiet {
+        rprint!("\n");
+        r::flush_console();
+    }
+    if timer.echo() {
+        rprint!("{}", timer.stamp("Sweetened bests.\n").unwrap().as_str());
+        r::flush_console();
+    }
+    bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
+    let (best_z, _, best_loss, candidate_number, n_accepts, best_iteration, _) =
+        bests.swap_remove(0);
+    if timer.echo() {
+        rprint!(
+            "{}",
+            format!(
+                "Best result is {} from candidate {} at iteration {} after {} accept{}.\n",
+                best_loss,
+                candidate_number + 1,
+                best_iteration + 1,
+                n_accepts,
+                if n_accepts == 1 { "" } else { "s" }
+            )
+            .as_str()
+        );
+        r::flush_console();
+    }
+    let columns_to_keep: Vec<usize> = best_z
+        .axis_iter(Axis(1))
+        .enumerate()
+        .filter_map(|(j, column)| {
+            if column.iter().any(|x| *x != 0.0) {
+                Some(j)
+            } else {
+                None
+            }
+        })
+        .collect();
+    let (estimate, estimate_slice) =
+        Rval::new_matrix_double(n_items, columns_to_keep.len(), &mut pc);
+    columns_to_keep
+        .iter()
+        .enumerate()
+        .for_each(|(j_new, j_old)| {
+            matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
+        });
+    let list = Rval::new_list(6, &mut pc);
+    list.names_gets(Rval::new(
+        [
+            "estimate",
+            "loss",
+            "iteration",
+            "nIterations",
+            "secondsSweetening",
+            "whichBest",
+        ],
+        &mut pc,
+    ));
+    list.set_list_element(0, estimate);
+    list.set_list_element(1, Rval::new(best_loss, &mut pc));
+    list.set_list_element(2, Rval::new(best_iteration as i32, &mut pc));
+    list.set_list_element(3, Rval::try_new(iteration_counter, &mut pc).unwrap());
+    list.set_list_element(5, Rval::new((candidate_number + 1) as i32, &mut pc));
+    let seconds_in_sweetening = timer.total_as_secs_f64();
+    list.set_list_element(4, Rval::new(seconds_in_sweetening, &mut pc));
+    if timer.echo() {
+        rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
+        r::flush_console();
+    }
+    list
+}
+
+#[roxido]
 fn compute_loss_augmented(z1: Rval, z2: Rval) -> Rval {
     let (loss, mut solution) = if z1.is_double() && z2.is_double() {
         match make_weight_matrix(make_view(z1), make_view(z2)) {
