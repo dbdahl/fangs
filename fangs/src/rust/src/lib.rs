@@ -19,6 +19,7 @@ fn fangs(
     max_n_features: Rval,
     n_candidates: Rval,
     n_bests: Rval,
+    a: Rval,
     n_cores: Rval,
     quiet: Rval,
 ) -> Rval {
@@ -28,6 +29,7 @@ fn fangs(
         panic!("Number of samples must be at least one.");
     }
     let max_n_features = max_n_features.as_usize();
+    let a = a.as_f64();
     let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
     let n_bests = n_bests.as_usize().max(1).min(n_candidates);
     let n_iterations = n_iterations.as_usize();
@@ -135,7 +137,7 @@ fn fangs(
         if interrupted || r::check_user_interrupt() {
             panic!("Caught user interrupt before main loop, so aborting.");
         }
-        let loss = expected_loss_from_samples(z.view(), &views, &pool);
+        let loss = expected_loss_from_samples(z.view(), &views, a, &pool);
         candidates.push((z, loss, rng));
     }
     if timer.echo() {
@@ -155,7 +157,7 @@ fn fangs(
             .into_par_iter()
             .enumerate()
             .map(|(id, (z, loss, rng))| {
-                let weight_matrices = make_weight_matrices(z.view(), &views, &pool);
+                let weight_matrices = make_weight_matrices(z.view(), &views, a, &pool);
                 let n_accepts = 0;
                 let when = 1;
                 (z, weight_matrices, loss, id, n_accepts, when, rng)
@@ -310,7 +312,8 @@ fn fangs(
 }
 
 #[roxido]
-fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
+fn compute_expected_loss(z: Rval, samples: Rval, a: Rval, n_cores: Rval) -> Rval {
+    let a = a.as_f64();
     let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
@@ -322,15 +325,16 @@ fn compute_expected_loss(z: Rval, samples: Rval, n_cores: Rval) -> Rval {
         views.push(make_view(samples.get_list_element(i)));
     }
     Rval::new(
-        expected_loss_from_samples(make_view(z), &views, &pool),
+        expected_loss_from_samples(make_view(z), &views, a, &pool),
         &mut pc,
     )
 }
 
 #[roxido]
-fn compute_loss(z1: Rval, z2: Rval) -> Rval {
+fn compute_loss(z1: Rval, z2: Rval, a: Rval) -> Rval {
+    let a = a.as_f64();
     let loss = if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
-        match make_weight_matrix(make_view(z1), make_view(z2)) {
+        match make_weight_matrix(make_view(z1), make_view(z2), a) {
             Some(weight_matrix) => loss(&weight_matrix),
             None => 0.0,
         }
@@ -341,33 +345,49 @@ fn compute_loss(z1: Rval, z2: Rval) -> Rval {
 }
 
 #[roxido]
-fn compute_loss_permutations(z1: Rval, z2: Rval) -> Rval {
+fn compute_loss_permutations(z1: Rval, z2: Rval, a: Rval) -> Rval {
     use itertools::Itertools;
+    let a = a.as_f64();
+    let b = 2.0 - a;
     let loss = if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
         let v1 = make_view(z1);
         let v2 = make_view(z2);
         let zero = Array1::zeros(v1.nrows());
         let zero_view = zero.view();
         let k = v1.ncols().max(v2.ncols());
-        (0..k).permutations(k).map(|permutation| {
-            let mut loss = 0;
-            for i in 0..k {
-                let c1 = if i >= v1.ncols() {
-                    zero_view
-                } else {
-                    v1.column(i)
-                };
-                let j = permutation[i];
-                let c2 = if j >= v2.ncols() {
-                    zero_view
-                } else {
-                    v2.column(j)
-                };
-                let a = std::iter::zip(c1, c2);
-                loss += a.fold(0, |sum, (&x1,&x2)| sum + if x1!=x2 {1} else {0});
-            }
-            loss
-        }).min().unwrap()
+        (0..k)
+            .permutations(k)
+            .map(|permutation| {
+                let mut loss = 0.0;
+                for i in 0..k {
+                    let c1 = if i >= v1.ncols() {
+                        zero_view
+                    } else {
+                        v1.column(i)
+                    };
+                    let j = permutation[i];
+                    let c2 = if j >= v2.ncols() {
+                        zero_view
+                    } else {
+                        v2.column(j)
+                    };
+                    let aa = std::iter::zip(c1, c2);
+                    loss += aa.fold(0.0, |sum, (&x1, &x2)| {
+                        sum + if x1 != x2 {
+                            if x1 > x2 {
+                                a
+                            } else {
+                                b
+                            }
+                        } else {
+                            0.0
+                        }
+                    });
+                }
+                loss
+            })
+            .reduce(f64::min)
+            .unwrap()
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
@@ -379,6 +399,7 @@ fn sweeten(
     candidates: Rval,
     samples: Rval,
     n_iterations: Rval,
+    a: Rval,
     n_cores: Rval,
     quiet: Rval,
 ) -> Rval {
@@ -392,6 +413,7 @@ fn sweeten(
         panic!("Number of samples must be at least one.");
     }
     let n_iterations = n_iterations.as_usize();
+    let a = a.as_f64();
     let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
@@ -464,14 +486,15 @@ fn sweeten(
         );
         r::flush_console();
     }
-    let candidates_with_rngs: Vec<_> =  candidates_.into_iter()
-            .map(|candidate_view| {
-                let mut seed = [0_u8; 16];
-                rng.fill_bytes(&mut seed);
-                let new_rng = Pcg64Mcg::from_seed(seed);
-                (candidate_view, new_rng)
-            })
-            .collect();
+    let candidates_with_rngs: Vec<_> = candidates_
+        .into_iter()
+        .map(|candidate_view| {
+            let mut seed = [0_u8; 16];
+            rng.fill_bytes(&mut seed);
+            let new_rng = Pcg64Mcg::from_seed(seed);
+            (candidate_view, new_rng)
+        })
+        .collect();
     if timer.echo() {
         interrupted |= rprint!(
             "{}",
@@ -484,7 +507,7 @@ fn sweeten(
         if interrupted || r::check_user_interrupt() {
             panic!("Caught user interrupt before main loop, so aborting.");
         }
-        let loss = expected_loss_from_samples(z.view(), &views, &pool);
+        let loss = expected_loss_from_samples(z.view(), &views, a, &pool);
         candidates_with_losses_and_rngs.push((z, loss, rng));
     }
     if timer.echo() {
@@ -502,7 +525,7 @@ fn sweeten(
             .into_par_iter()
             .enumerate()
             .map(|(id, (z, loss, rng))| {
-                let weight_matrices = make_weight_matrices(z.view(), &views, &pool);
+                let weight_matrices = make_weight_matrices(z.view(), &views, a, &pool);
                 let n_accepts = 0;
                 let when = 1;
                 (z, weight_matrices, loss, id, n_accepts, when, rng)
@@ -654,9 +677,10 @@ fn sweeten(
 }
 
 #[roxido]
-fn compute_loss_augmented(z1: Rval, z2: Rval) -> Rval {
+fn compute_loss_augmented(z1: Rval, z2: Rval, a: Rval) -> Rval {
+    let a = a.as_f64();
     let (loss, mut solution) = if z1.is_double() && z2.is_double() {
-        match make_weight_matrix(make_view(z1), make_view(z2)) {
+        match make_weight_matrix(make_view(z1), make_view(z2), a) {
             Some(weight_matrix) => {
                 let solution = lapjv::lapjv(&weight_matrix).unwrap();
                 (lapjv::cost(&weight_matrix, &solution.0), solution)
@@ -697,12 +721,13 @@ fn make_view(z: Rval) -> ArrayView2<'static, f64> {
 fn make_weight_matrices(
     z: ArrayView2<f64>,
     samples: &[ArrayView2<f64>],
+    a: f64,
     pool: &ThreadPool,
 ) -> Vec<Array2<f64>> {
     pool.install(|| {
         samples
             .par_iter()
-            .map(|zz| make_weight_matrix(z, *zz).unwrap())
+            .map(|zz| make_weight_matrix(z, *zz, a).unwrap())
             .collect()
     })
 }
@@ -738,7 +763,8 @@ fn flip_bit(
 }
 
 #[allow(clippy::float_cmp)]
-fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2<f64>> {
+fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>, a: f64) -> Option<Array2<f64>> {
+    let b = 2.0 - a;
     let k1 = y1.ncols();
     let k2 = y2.ncols();
     let k = k1.max(k2);
@@ -752,11 +778,17 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2
         let x1 = if i1 >= k1 { zero_view } else { y1.column(i1) };
         for i2 in 0..k {
             let x2 = if i2 >= k2 { zero_view } else { y2.column(i2) };
-            vec.push(
-                Zip::from(&x1)
-                    .and(&x2)
-                    .fold(0.0, |acc, a, b| acc + if *a != *b { 1.0 } else { 0.0 }),
-            );
+            vec.push(Zip::from(&x1).and(&x2).fold(0.0, |acc, &aa, &bb| {
+                acc + if aa != bb {
+                    if aa > bb {
+                        a
+                    } else {
+                        b
+                    }
+                } else {
+                    0.0
+                }
+            }));
         }
     }
     Some(unsafe { Array::from_shape_vec_unchecked((k, k), vec) })
@@ -765,6 +797,7 @@ fn make_weight_matrix(y1: ArrayView2<f64>, y2: ArrayView2<f64>) -> Option<Array2
 fn expected_loss_from_samples(
     z: ArrayView2<f64>,
     samples: &[ArrayView2<f64>],
+    a: f64,
     pool: &ThreadPool,
 ) -> f64 {
     pool.install(|| {
@@ -773,7 +806,7 @@ fn expected_loss_from_samples(
             .fold(
                 || 0.0,
                 |acc: f64, zz: &ArrayView2<f64>| {
-                    acc + match make_weight_matrix(z, *zz) {
+                    acc + match make_weight_matrix(z, *zz, a) {
                         Some(weight_matrix) => loss(&weight_matrix),
                         None => 0.0,
                     }

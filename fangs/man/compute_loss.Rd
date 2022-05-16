@@ -4,7 +4,7 @@
 \alias{compute_loss}
 \title{Compute the FARO Loss Between Feature Allocations}
 \usage{
-compute_loss(Z1, Z2, augmented = FALSE)
+compute_loss(Z1, Z2, a = 1, augmented = FALSE)
 }
 \arguments{
 \item{Z1}{A feature allocation in binary matrix form, with items in the rows
@@ -12,6 +12,8 @@ and features in the columns.}
 
 \item{Z2}{A feature allocation in binary matrix form, with items in the rows
 and features in the columns.}
+
+\item{a}{Cost parameter, a numeric scalar.}
 
 \item{augmented}{If \code{TRUE}, the column permutation (used by FARO loss to
 compare the feature allocations) is returned for each matrix.}
@@ -31,7 +33,7 @@ Z2 <- matrix(c(0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0), byrow=TRUE, nrow=6)
 # R_CARGO # Example disabled since Cargo was not found when installing from source package.
 # R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 compute_loss(Z1,Z2)
-x <- compute_loss(Z1,Z2,TRUE)
+x <- compute_loss(Z1,Z2,a=1,TRUE)
 # R_CARGO }
 sum(cbind(Z1,0) != Z2)
 # R_CARGO \dontrun{

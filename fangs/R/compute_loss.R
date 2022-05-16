@@ -3,6 +3,7 @@
 #' The FARO loss is computed between two feature allocations, each represented
 #' in binary matrix form.
 #'
+#' @inheritParams fangs
 #' @param Z1 A feature allocation in binary matrix form, with items in the rows
 #'   and features in the columns.
 #' @param Z2 A feature allocation in binary matrix form, with items in the rows
@@ -21,7 +22,7 @@
 #' # R_CARGO # Example disabled since Cargo was not found when installing from source package.
 #' # R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 #' compute_loss(Z1,Z2)
-#' x <- compute_loss(Z1,Z2,TRUE)
+#' x <- compute_loss(Z1,Z2,a=1,TRUE)
 #' # R_CARGO }
 #' sum(cbind(Z1,0) != Z2)
 #' # R_CARGO \dontrun{
@@ -29,24 +30,24 @@
 #' sum(cbind(Z1,0) != Z2[,x$permutation2])
 #' # R_CARGO }
 #'
-compute_loss <- function(Z1, Z2, augmented=FALSE) {
+compute_loss <- function(Z1, Z2, a=1.0, augmented=FALSE) {
   if ( ! is.numeric(Z1) ) stop("'Z1' should be numeric.")
   if ( ! is.numeric(Z2) ) stop("'Z2' should be numeric.")
   if ( ! is.matrix(Z1) ) stop("'Z1' should be a matrix.")
   if ( ! is.matrix(Z2) ) stop("'Z2' should be a matrix.")
   if ( nrow(Z1) != nrow(Z2) ) stop("'Z1' and 'Z2' must have the same number of rows.")
   if ( isTRUE(augmented) ) {
-    .Call(.compute_loss_augmented,Z1,Z2)
+    .Call(.compute_loss_augmented,Z1,Z2,a)
   } else {
-    .Call(.compute_loss,Z1,Z2)
+    .Call(.compute_loss,Z1,Z2,a)
   }
 }
 
-compute_loss_permutations <- function(Z1, Z2) {
+compute_loss_permutations <- function(Z1, Z2, a=1.0) {
   if ( ! is.numeric(Z1) ) stop("'Z1' should be numeric.")
   if ( ! is.numeric(Z2) ) stop("'Z2' should be numeric.")
   if ( ! is.matrix(Z1) ) stop("'Z1' should be a matrix.")
   if ( ! is.matrix(Z2) ) stop("'Z2' should be a matrix.")
   if ( nrow(Z1) != nrow(Z2) ) stop("'Z1' and 'Z2' must have the same number of rows.")
-  .Call(.compute_loss_permutations,Z1,Z2)
+  .Call(.compute_loss_permutations,Z1,Z2,a)
 }

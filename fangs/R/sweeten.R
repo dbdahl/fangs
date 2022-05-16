@@ -3,10 +3,10 @@
 #' An implementation of the sweetening phrase of the feature allocation greedy search algorithm is
 #' provided.
 #'
+#' @inheritParams fangs
 #' @param candidates An object of class \sQuote{list} containing features allocations to sweeten.  Each list element encodes one
 #'   feature allocation as a binary matrix, with items in the rows and features
 #'   in the columns.
-#' @inheritParams fangs
 #'
 #' @return A list with the following elements:
 #' \itemize{
@@ -27,8 +27,8 @@
 #' sweeten(samplesFA[1:3], samplesFA, nIterations=100, nCores=2)
 #' # R_CARGO }
 #'
-sweeten <- function(candidates, samples, nIterations=1000, nCores=0, quiet=FALSE) {
+sweeten <- function(candidates, samples, nIterations=1000, a=1.0, nCores=0, quiet=FALSE) {
   candidates <- lapply(candidates, function(x) {storage.mode(x) <- "double"; x})
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
-  .Call(.sweeten, candidates, samples, nIterations, nCores, quiet)
+  .Call(.sweeten, candidates, samples, nIterations, a, nCores, quiet)
 }

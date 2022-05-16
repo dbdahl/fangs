@@ -18,6 +18,7 @@
 #' @param nBests The number of feature allocations among \code{nCandidates}
 #'   which are chosen (by lowest expected loss) to be optimized in the
 #'   sweetening phase.
+#' @param a Cost parameter, a numeric scalar.
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous calculations at any given time. A value of zero indicates to
 #'   use all cores on the system.
@@ -47,8 +48,8 @@
 #' fangs(samplesFA, nIterations=50, nCandidates=length(samplesFA)/2, nBests=3, nCores=2, quiet=TRUE)
 #' # R_CARGO }
 #'
-fangs <- function(samples, nIterations=1000, maxNFeatures=0, nCandidates=length(samples), nBests=4, nCores=0, quiet=FALSE) {
+fangs <- function(samples, nIterations=1000, maxNFeatures=0, nCandidates=length(samples), nBests=4, a=1.0, nCores=0, quiet=FALSE) {
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
-  result <- .Call(.fangs, samples, nIterations, maxNFeatures, nCandidates, nBests, nCores, quiet)
-  c(result, nBests=nBests, nCandidates=nCandidates, maxNFeatures=maxNFeatures)
+  result <- .Call(.fangs, samples, nIterations, maxNFeatures, nCandidates, nBests, a, nCores, quiet)
+  c(result, nBests=nBests, nCandidates=nCandidates, maxNFeatures=maxNFeatures, a=a)
 }

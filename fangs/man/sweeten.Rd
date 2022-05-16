@@ -4,7 +4,14 @@
 \alias{sweeten}
 \title{Sweeten Feature Allocations}
 \usage{
-sweeten(candidates, samples, nIterations = 1000, nCores = 0, quiet = FALSE)
+sweeten(
+  candidates,
+  samples,
+  nIterations = 1000,
+  a = 1,
+  nCores = 0,
+  quiet = FALSE
+)
 }
 \arguments{
 \item{candidates}{An object of class \sQuote{list} containing features allocations to sweeten.  Each list element encodes one
@@ -18,6 +25,8 @@ in the columns.}
 
 \item{nIterations}{The number of iterations (i.e., proposed changes) to
 consider per draw in the sweetening phase.}
+
+\item{a}{Cost parameter, a numeric scalar.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to

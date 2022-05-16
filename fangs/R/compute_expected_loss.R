@@ -18,7 +18,7 @@
 #' compute_expected_loss(samplesFA, Z)
 #' # R_CARGO }
 #'
-compute_expected_loss <- function(samples, Z, nCores=0) {
-  # mean(sapply(Zs, function(Z2) compute_loss(Z2,Z)))
-  .Call(.compute_expected_loss, Z, samples, nCores)
+compute_expected_loss <- function(samples, Z, a=1.0, nCores=0) {
+  # mean(sapply(Zs, function(Z2) compute_loss(Z2,Z,a)))
+  .Call(.compute_expected_loss, Z, samples, a, nCores)
 }

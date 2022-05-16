@@ -4,7 +4,7 @@
 \alias{compute_expected_loss}
 \title{Estimate the expected FARO Loss for a Feature Allocation}
 \usage{
-compute_expected_loss(samples, Z, nCores = 0)
+compute_expected_loss(samples, Z, a = 1, nCores = 0)
 }
 \arguments{
 \item{samples}{An object of class \sQuote{list} containing posterior samples
@@ -14,6 +14,8 @@ in the columns.}
 
 \item{Z}{A feature allocation in binary matrix form, with items in
 the rows and features in the columns.}
+
+\item{a}{Cost parameter, a numeric scalar.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to

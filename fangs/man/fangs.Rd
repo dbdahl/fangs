@@ -10,6 +10,7 @@ fangs(
   maxNFeatures = 0,
   nCandidates = length(samples),
   nBests = 4,
+  a = 1,
   nCores = 0,
   quiet = FALSE
 )
@@ -34,6 +35,8 @@ in \code{samples}) to randomly select and score.}
 \item{nBests}{The number of feature allocations among \code{nCandidates}
 which are chosen (by lowest expected loss) to be optimized in the
 sweetening phase.}
+
+\item{a}{Cost parameter, a numeric scalar.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to
