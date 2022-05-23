@@ -49,6 +49,7 @@
 #' # R_CARGO }
 #'
 fangs <- function(samples, nIterations=1000, maxNFeatures=0, nCandidates=length(samples), nBests=4, a=1.0, nCores=0, quiet=FALSE) {
+  if ( a < 0.0 || a > 2.0 ) stop("'a' must be in [0,2].")
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
   result <- .Call(.fangs, samples, nIterations, maxNFeatures, nCandidates, nBests, a, nCores, quiet)
   c(result, nBests=nBests, nCandidates=nCandidates, maxNFeatures=maxNFeatures, a=a)

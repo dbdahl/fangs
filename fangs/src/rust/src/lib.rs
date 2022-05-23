@@ -12,6 +12,9 @@ use std::convert::TryInto;
 use std::path::Path;
 use timers::{EchoTimer, PeriodicTimer};
 
+#[allow(unused_imports)]
+use approx::assert_ulps_eq;
+
 #[roxido]
 fn fangs(
     samples: Rval,
@@ -190,14 +193,14 @@ fn fangs(
                         [index / ncols, index % ncols]
                     }
                     let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                    flip_bit(z, weight_matrices, index, &views);
+                    flip_bit(z, weight_matrices, a, index, &views);
                     let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
                     if new_loss < *loss {
                         *n_accepts += 1;
                         *when = iteration_counter;
                         *loss = new_loss;
                     } else {
-                        flip_bit(z, weight_matrices, index, &views);
+                        flip_bit(z, weight_matrices, a, index, &views);
                     }
                 });
         });
@@ -557,14 +560,14 @@ fn sweeten(
                         [index / ncols, index % ncols]
                     }
                     let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                    flip_bit(z, weight_matrices, index, &views);
+                    flip_bit(z, weight_matrices, a, index, &views);
                     let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
                     if new_loss < *loss {
                         *n_accepts += 1;
                         *when = iteration_counter;
                         *loss = new_loss;
                     } else {
-                        flip_bit(z, weight_matrices, index, &views);
+                        flip_bit(z, weight_matrices, a, index, &views);
                     }
                 });
         });
@@ -736,27 +739,43 @@ fn make_weight_matrices(
 fn flip_bit(
     z: &mut Array2<f64>,
     matrices: &mut Vec<Array2<f64>>,
+    a: f64,
     index: [usize; 2],
     samples: &[ArrayView2<f64>],
 ) {
     let old_bit = z[index];
     z[index] = if old_bit == 0.0 { 1.0 } else { 0.0 };
+    let b = 2.0 - a;
+    let i0 = index[0];
+    let i1 = index[1];
     let result = samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
         for i2 in 0..w.ncols() {
-            let bit_in_sample = if i2 >= zz.ncols() {
-                0.0
+            let bit_in_sample = if i2 >= zz.ncols() { 0.0 } else { zz[[i0, i2]] };
+            w[[i1, i2]] += if old_bit == 0.0 {
+                if bit_in_sample == 0.0 {
+                    a
+                } else {
+                    -b
+                }
             } else {
-                zz[[index[0], i2]]
+                if bit_in_sample == 0.0 {
+                    -a
+                } else {
+                    b
+                }
             };
-            w[[index[1], i2]] += if old_bit != bit_in_sample { -1.0 } else { 1.0 };
         }
     });
     /*
     // Sanity check, but commented out for speed.
-    let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
-    assert_eq!(
-        expected_loss_from_samples(z.view(), samples, &pool),
-        expected_loss_from_weight_matrices(matrices, &pool)
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    assert_ulps_eq!(
+        expected_loss_from_samples(z.view(), samples, a, &pool),
+        expected_loss_from_weight_matrices(matrices, &pool),
+        max_ulps = 4
     );
     */
     result
