@@ -80,7 +80,7 @@ fn fangs(
             panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
-        max_n_features_observed += max_n_features_observed.max(view.ncols());
+        max_n_features_observed = max_n_features_observed.max(view.ncols());
         views.push(view)
     }
     if timer.echo() {
@@ -102,32 +102,32 @@ fn fangs(
     let initials_with_rngs: Vec<_> = pool.install(|| {
         baselines_with_rngs
             .into_par_iter()
-            .map(|(view, mut rng)| {
+            .map(|(view, rng)| {
                 println!("Starting with:\n{}", view);
-                let n_features_in_view = view.ncols();
-                let n_features = if max_n_features == 0 {
-                    n_features_in_view
-                } else {
-                    max_n_features.min(n_features_in_view)
-                };
-                let selected_columns: Vec<_> =
-                    rand::seq::index::sample(&mut rng, view.ncols(), n_features).into_vec();
-                let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
-                    view[[i, selected_columns[j]]]
-                });
-                println!("After reducing to max number of features:\n{}", z);
                 let elementwise_sums = views
                     .par_iter()
                     .map(|zz| {
-                        let weight_matrix = make_weight_matrix(z.view(), *zz, a).unwrap();
+                        let weight_matrix = make_weight_matrix(view, *zz, a).unwrap();
                         let solution = lapjv::lapjv(&weight_matrix).unwrap();
-                        let aligned = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
-                            view[[i, solution.0[j]]]
-                        });
+                        let aligned =
+                            Array2::from_shape_fn((n_items, max_n_features_observed), |(i, j)| {
+                                if j >= solution.0.len() {
+                                    0.0
+                                } else {
+                                    let jj = solution.0[j];
+                                    if jj >= zz.ncols() {
+                                        0.0
+                                    } else {
+                                        zz[[i, jj]]
+                                    }
+                                }
+                            });
                         aligned
                     })
-                    .reduce(|| z.clone(), |z1, z2| z1 + z2);
-                println!("Elementwise sums:\n{}", elementwise_sums);
+                    .reduce(
+                        || Array2::zeros((n_items, max_n_features_observed)),
+                        |z1, z2| z1 + z2,
+                    );
                 let elementwise_means = elementwise_sums / (n_samples as f64);
                 println!("Elementwise means:\n{}", elementwise_means);
                 let initial_estimate_with_zero_columns =
@@ -144,7 +144,7 @@ fn fangs(
                     }
                     column_counter += 1;
                 }
-                let initial_estimate = if which.len() < n_features {
+                let initial_estimate = if which.len() < initial_estimate_with_zero_columns.ncols() {
                     println!("Yep, some zero columns.");
                     Array2::from_shape_fn((n_items, which.len()), |(i, j)| {
                         initial_estimate_with_zero_columns[[i, which[j]]]
@@ -387,7 +387,6 @@ fn fangs_old(
         panic!("All elements of 'samples' must be double matrices.");
     }
     let n_items = o.nrow();
-    let mut max_n_features_observed = 0;
     let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
@@ -413,7 +412,6 @@ fn fangs_old(
             panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
-        max_n_features_observed += max_n_features_observed.max(view.ncols());
         views.push(view)
     }
     if timer.echo() {
@@ -778,7 +776,6 @@ fn sweeten(
         }
         n_items
     };
-    let mut max_n_features_observed = 0;
     let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
@@ -813,7 +810,6 @@ fn sweeten(
             panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
-        max_n_features_observed += max_n_features_observed.max(view.ncols());
         views.push(view);
     }
     if timer.echo() {
@@ -1113,6 +1109,35 @@ fn flip_bit(
     );
     */
     result
+}
+#[allow(clippy::float_cmp)]
+fn hamming(y1: ArrayView2<f64>, y2: ArrayView2<f64>, a: f64) -> f64 {
+    let b = 2.0 - a;
+    let k1 = y1.ncols();
+    let k2 = y2.ncols();
+    let k = k1.max(k2);
+    if k == 0 {
+        return 0.0;
+    }
+    let mut sum = 0.0;
+    let zero = Array1::zeros(y1.nrows());
+    let zero_view = zero.view();
+    for i1 in 0..k {
+        let x1 = if i1 >= k1 { zero_view } else { y1.column(i1) };
+        let x2 = if i1 >= k2 { zero_view } else { y2.column(i1) };
+        sum += Zip::from(&x1).and(&x2).fold(0.0, |acc, &aa, &bb| {
+            acc + if aa != bb {
+                if aa > bb {
+                    a
+                } else {
+                    b
+                }
+            } else {
+                0.0
+            }
+        });
+    }
+    sum
 }
 
 #[allow(clippy::float_cmp)]
