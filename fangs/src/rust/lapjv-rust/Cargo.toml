@@ -1,0 +1,32 @@
+[package]
+name = "lapjv"
+version = "0.2.1"
+authors = ["Andrii Dmytrenko <andrii.dmytrenko@deliveroo.co.uk>"]
+description = "Linear Assignmment Problem solve using Jonker-Volgenant algorithm"
+license = "MIT"
+documentation = "https://docs.rs/lapjv"
+homepage = "https://github.com/Antti/lapjv-rust"
+repository = "https://github.com/Antti/lapjv-rust.git"
+
+build = "build.rs"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md"
+]
+
+[badges]
+travis-ci = { repository = "Antti/lapjv-rust", branch = "master" }
+maintenance = { status = "as-is" }
+
+[features]
+nightly = []
+
+[dependencies]
+ndarray = "0.15"
+num-traits = "0.2"
+log = "0.4"
+
+[dev-dependencies]
+rand = "0.7"
+rustc_version = "0.2"
