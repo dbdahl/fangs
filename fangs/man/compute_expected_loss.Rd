@@ -15,7 +15,8 @@ in the columns.}
 \item{Z}{A feature allocation in binary matrix form, with items in
 the rows and features in the columns.}
 
-\item{a}{Cost parameter, a numeric scalar.}
+\item{a}{A numeric scalar for the cost parameter of generalized Hamming
+distance used in FARO loss.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to

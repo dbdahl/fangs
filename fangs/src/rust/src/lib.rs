@@ -136,12 +136,14 @@ fn fangs(
                     }
                     column_counter += 1;
                 }
-                let initial_estimate = if which.len() < initial_estimate_with_zero_columns.ncols() {
+                let initial_estimate = if which.is_empty() {
+                    Array2::zeros((n_items, 1))
+                } else if which.len() == initial_estimate_with_zero_columns.ncols() {
+                    initial_estimate_with_zero_columns
+                } else {
                     Array2::from_shape_fn((n_items, which.len()), |(i, j)| {
                         initial_estimate_with_zero_columns[[i, which[j]]]
                     })
-                } else {
-                    initial_estimate_with_zero_columns
                 };
                 (initial_estimate, rng)
             })

@@ -7,15 +7,18 @@
 #'   from a feature allocation distribution. Each list element encodes one
 #'   feature allocation as a binary matrix, with items in the rows and features
 #'   in the columns.
-#' @param nInit The number of feature allocations (from the list provided
-#'   in \code{samples}) to randomly select and use as the baseline to alignment
-#'   to get the initial estimates.
-#' @param nSweet The number of feature allocations among \code{nInit}
-#'   which are chosen (by lowest expected loss) to be optimized in the
-#'   sweetening phase.
+#' @param nInit The number of initial feature allocations to obtain using the
+#'   alignment method.  For each initial feature, a baseline feature allocation
+#'   is uniformly selected from the list provided in \code{samples}. Samples are
+#'   aligned to the baseline, proportions are computed for each matrix element,
+#'   and the initial feature allocation is obtained by thresholding according to
+#'   \eqn{a/2}.
+#' @param nSweet The number of feature allocations among \code{nInit} which are
+#'   chosen (by lowest expected loss) to be optimized in the sweetening phase.
 #' @param nIterations The number of iterations (i.e., proposed changes) to
 #'   consider per draw in the sweetening phase.
-#' @param a Cost parameter, a numeric scalar.
+#' @param a A numeric scalar for the cost parameter of generalized Hamming
+#'   distance used in FARO loss.
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous calculations at any given time. A value of zero indicates to
 #'   use all cores on the system.

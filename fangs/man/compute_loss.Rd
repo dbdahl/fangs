@@ -13,7 +13,8 @@ and features in the columns.}
 \item{Z2}{A feature allocation in binary matrix form, with items in the rows
 and features in the columns.}
 
-\item{a}{Cost parameter, a numeric scalar.}
+\item{a}{A numeric scalar for the cost parameter of generalized Hamming
+distance used in FARO loss.}
 
 \item{augmented}{If \code{TRUE}, the column permutation (used by FARO loss to
 compare the feature allocations) is returned for each matrix.}

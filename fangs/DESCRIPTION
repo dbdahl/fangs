@@ -1,6 +1,6 @@
 Package: fangs
 Title: Feature Allocation Neighborhood Search Algorithm
-Version: 0.0.23
+Version: 0.0.24
 Authors@R: c(person(given="David B.",family="Dahl",role=c("aut","cre"),email="dahl@stat.byu.edu",comment=c(ORCID="0000-0002-8173-1547")),
     person(given="Jacob", family="Andros", role=c("aut"),email="androsrj@gmail.com", comment=c(ORCID="0000-0002-1289-385X")),
     person(given="Devin J.",family="Johnson",role=c("aut"),email="devin.j.johnson7@gmail.com",comment=c(ORCID="0000-0003-2619-6649")))
@@ -8,7 +8,7 @@ Description: A neighborhood-based, gready search algorithm is performed to estim
 License: MIT + file LICENSE | Apache License 2.0
 Depends: R (>= 4.2.0)
 Imports: cargo (>=  0.2.3)
-SystemRequirements: Cargo (>= 1.60) for installation from sources: see INSTALL file
+SystemRequirements: Cargo (>= 1.61) for installation from sources: see INSTALL file
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
