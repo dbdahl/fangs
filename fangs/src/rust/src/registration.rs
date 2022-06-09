@@ -35,12 +35,12 @@ fn compute_loss_permutations(Z1: Rval, Z2: Rval, a: Rval) -> Rval {
 }
 
 #[roxido]
-fn fangs(samples: Rval, nIterations: Rval, maxNFeatures: Rval, nCandidates: Rval, nBests: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
+fn fangs_old(samples: Rval, nIterations: Rval, nInit: Rval, nSweet: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
     Rval::nil()
 }
 
 #[roxido]
-fn sweeten(candidates: Rval, samples: Rval, nIterations: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
+fn fangs(samples: Rval, nIterations: Rval, nInit: Rval, nSweet: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
     Rval::nil()
 }
 */
@@ -75,17 +75,17 @@ extern "C" fn R_init_fangs_rust(info: *mut rbindings::DllInfo) {
         fun: unsafe { std::mem::transmute(crate::compute_loss_permutations as *const u8) },
         numArgs: 3,
     });
+    _names.push(std::ffi::CString::new(".fangs_old").unwrap());
+    call_routines.push(rbindings::R_CallMethodDef {
+        name: _names.last().unwrap().as_ptr(),
+        fun: unsafe { std::mem::transmute(crate::fangs_old as *const u8) },
+        numArgs: 7,
+    });
     _names.push(std::ffi::CString::new(".fangs").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {
         name: _names.last().unwrap().as_ptr(),
         fun: unsafe { std::mem::transmute(crate::fangs as *const u8) },
-        numArgs: 8,
-    });
-    _names.push(std::ffi::CString::new(".sweeten").unwrap());
-    call_routines.push(rbindings::R_CallMethodDef {
-        name: _names.last().unwrap().as_ptr(),
-        fun: unsafe { std::mem::transmute(crate::sweeten as *const u8) },
-        numArgs: 6,
+        numArgs: 7,
     });
     call_routines.push(rbindings::R_CallMethodDef {
         name: std::ptr::null(),

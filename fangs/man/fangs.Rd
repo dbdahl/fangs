@@ -6,10 +6,9 @@
 \usage{
 fangs(
   samples,
-  nIterations = 1000,
-  maxNFeatures = 0,
   nInit = 16,
   nSweet = 4,
+  nIterations = 1000,
   a = 1,
   nCores = 0,
   quiet = FALSE
@@ -21,14 +20,6 @@ from a feature allocation distribution. Each list element encodes one
 feature allocation as a binary matrix, with items in the rows and features
 in the columns.}
 
-\item{nIterations}{The number of iterations (i.e., proposed changes) to
-consider per draw in the sweetening phase.}
-
-\item{maxNFeatures}{The maximum number of features that can be considered by
-the optimization algorithm, which has important implications for the
-interpretability of the resulting feature allocation. If the supplied value
-is zero, there is no constraint.}
-
 \item{nInit}{The number of feature allocations (from the list provided
 in \code{samples}) to randomly select and use as the baseline to alignment
 to get the initial estimates.}
@@ -36,6 +27,9 @@ to get the initial estimates.}
 \item{nSweet}{The number of feature allocations among \code{nInit}
 which are chosen (by lowest expected loss) to be optimized in the
 sweetening phase.}
+
+\item{nIterations}{The number of iterations (i.e., proposed changes) to
+consider per draw in the sweetening phase.}
 
 \item{a}{Cost parameter, a numeric scalar.}
 
@@ -49,14 +43,13 @@ use all cores on the system.}
 A list with the following elements:
 \itemize{
 \item estimate - The feature allocation point estimate in binary matrix form.
-\item loss - The estimated expected FARO loss of the point estimate.
+\item expectedLoss - The estimated expected FARO loss of the point estimate.
+\item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
 \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
 \item secondsInitialization - The elapsed time in the initialization phrase.
 \item secondsSweetening - The elapsed time in the sweetening phrase.
-\item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
-\item nSweet - The original supplied value of \code{nSweet}.
 \item nInit - The original supplied value of \code{nInit}.
-\item maxNFeatures - The original supplied value of \code{maxNFeatures}.
+\item nSweet - The original supplied value of \code{nSweet}.
 }
 }
 \description{
