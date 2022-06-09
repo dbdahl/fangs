@@ -8,8 +8,8 @@ fangs(
   samples,
   nIterations = 1000,
   maxNFeatures = 0,
-  nCandidates = length(samples),
-  nBests = 4,
+  nInit = 16,
+  nSweet = 4,
   a = 1,
   nCores = 0,
   quiet = FALSE
@@ -29,10 +29,11 @@ the optimization algorithm, which has important implications for the
 interpretability of the resulting feature allocation. If the supplied value
 is zero, there is no constraint.}
 
-\item{nCandidates}{The number of feature allocations (from the list provided
-in \code{samples}) to randomly select and score.}
+\item{nInit}{The number of feature allocations (from the list provided
+in \code{samples}) to randomly select and use as the baseline to alignment
+to get the initial estimates.}
 
-\item{nBests}{The number of feature allocations among \code{nCandidates}
+\item{nSweet}{The number of feature allocations among \code{nInit}
 which are chosen (by lowest expected loss) to be optimized in the
 sweetening phase.}
 
@@ -52,9 +53,9 @@ A list with the following elements:
 \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
 \item secondsInitialization - The elapsed time in the initialization phrase.
 \item secondsSweetening - The elapsed time in the sweetening phrase.
-\item whichBest - The proposal number (out of \code{nBests}) from which the point estimate was found.
-\item nBests - The original supplied value of \code{nBests}.
-\item nCandidates - The original supplied value of \code{nCandidates}.
+\item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
+\item nSweet - The original supplied value of \code{nSweet}.
+\item nInit - The original supplied value of \code{nInit}.
 \item maxNFeatures - The original supplied value of \code{maxNFeatures}.
 }
 }

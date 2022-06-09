@@ -99,17 +99,11 @@ fn fangs(
             (views[index], new_rng)
         })
         .collect();
-    if timer.echo() {
-        interrupted |= rprint!(
-            "{}",
-            timer.stamp("Made initial estimates.\n").unwrap().as_str()
-        );
-        r::flush_console();
-    }
     let initials_with_rngs: Vec<_> = pool.install(|| {
         baselines_with_rngs
             .into_par_iter()
             .map(|(view, mut rng)| {
+                println!("Starting with:\n{}", view);
                 let n_features_in_view = view.ncols();
                 let n_features = if max_n_features == 0 {
                     n_features_in_view
@@ -121,6 +115,7 @@ fn fangs(
                 let z = Array2::from_shape_fn((n_items, n_features), |(i, j)| {
                     view[[i, selected_columns[j]]]
                 });
+                println!("After reducing to max number of features:\n{}", z);
                 let elementwise_sums = views
                     .par_iter()
                     .map(|zz| {
@@ -132,12 +127,32 @@ fn fangs(
                         aligned
                     })
                     .reduce(|| z.clone(), |z1, z2| z1 + z2);
+                println!("Elementwise sums:\n{}", elementwise_sums);
                 let elementwise_means = elementwise_sums / (n_samples as f64);
-                let initial_estimate =
+                println!("Elementwise means:\n{}", elementwise_means);
+                let initial_estimate_with_zero_columns =
                     elementwise_means.mapv(|x| if x < threshold { 0.0 } else { 1.0 });
-                let billy = initial_estimate.columns().map(|column| {
-                    let b: () = column;
-                });
+                println!(
+                    "Initial estimate with zero columns:\n{}",
+                    initial_estimate_with_zero_columns
+                );
+                let mut which: Vec<usize> = Vec::new();
+                let mut column_counter = 0;
+                for column in initial_estimate_with_zero_columns.columns() {
+                    if column.iter().any(|&x| x > 0.0) {
+                        which.push(column_counter)
+                    }
+                    column_counter += 1;
+                }
+                let initial_estimate = if which.len() < n_features {
+                    println!("Yep, some zero columns.");
+                    Array2::from_shape_fn((n_items, which.len()), |(i, j)| {
+                        initial_estimate_with_zero_columns[[i, which[j]]]
+                    })
+                } else {
+                    initial_estimate_with_zero_columns
+                };
+                println!("Initial estimate:\n{}", initial_estimate);
                 (initial_estimate, rng)
             })
             .collect()
@@ -145,10 +160,7 @@ fn fangs(
     if timer.echo() {
         interrupted |= rprint!(
             "{}",
-            timer
-                .stamp("Reduced number of features for all initial estimates.\n")
-                .unwrap()
-                .as_str()
+            timer.stamp("Made initial estimates.\n").unwrap().as_str()
         );
         r::flush_console();
     }
@@ -318,7 +330,7 @@ fn fangs(
             "nIterations",
             "secondsInitialization",
             "secondsSweetening",
-            "whichBest",
+            "whichSweet",
         ],
         &mut pc,
     ));
