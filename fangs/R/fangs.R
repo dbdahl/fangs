@@ -16,9 +16,13 @@
 #' @param nSweet The number of feature allocations among \code{nInit} which are
 #'   chosen (by lowest expected loss) to be optimized in the sweetening phase.
 #' @param nIterations The number of iterations (i.e., proposed changes) to
-#'   consider per draw in the sweetening phase.
+#'   consider per initial estimate in the sweetening phase, although the actual
+#'   number may be less due to the \code{maxSeconds} argument.
+#' @param maxSeconds Stop sweetening once the total elapse time exceeds this
+#'   value.
 #' @param a A numeric scalar for the cost parameter of generalized Hamming
-#'   distance used in FARO loss.
+#'   distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
+#'   to \eqn{2 - a}.
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous calculations at any given time. A value of zero indicates to
 #'   use all cores on the system.
@@ -28,12 +32,14 @@
 #' \itemize{
 #'   \item estimate - The feature allocation point estimate in binary matrix form.
 #'   \item expectedLoss - The estimated expected FARO loss of the point estimate.
-#'   \item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
 #'   \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
 #'   \item secondsInitialization - The elapsed time in the initialization phrase.
 #'   \item secondsSweetening - The elapsed time in the sweetening phrase.
+#'   \item secondsTotal - The total elapsed time.
+#'   \item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
 #'   \item nInit - The original supplied value of \code{nInit}.
 #'   \item nSweet - The original supplied value of \code{nSweet}.
+#'   \item a - The original supplied value of \code{a}.
 #' }
 #'
 #' @export
@@ -46,14 +52,18 @@
 #' fangs(samplesFA, nIterations=100, nCores=2)
 #' # R_CARGO }
 #'
-fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, a=1.0, nCores=0, quiet=FALSE) {
+fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, maxSeconds=60, a=1.0, nCores=0, quiet=FALSE) {
   if ( a <= 0.0 || a >= 2.0 ) stop("'a' must be in (0,2).")
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
   result <- if ( Sys.getenv("FANGS_USE_DRAWS") == "TRUE" ) {
     warning("Using the 'draws' method.")
     .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
   } else {
-    .Call(.fangs, samples, nIterations, nInit, nSweet, a, nCores, quiet)
+    allowInterruptsWhileSweeteening <- Sys.getenv("FANGS_ALLOW_INTERRUPTS_WHILE_SWEETENING") == "TRUE"
+    if ( allowInterruptsWhileSweeteening ) {
+      warning("Allowing interrupts whilie sweetening.")
+    }
+    .Call(.fangs, samples, nIterations, maxSeconds, allowInterruptsWhileSweeteening, nInit, nSweet, a, nCores, quiet)
   }
   c(result, nInit=nInit, nSweet=nSweet, a=a)
 }

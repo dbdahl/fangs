@@ -9,6 +9,7 @@ fangs(
   nInit = 16,
   nSweet = 4,
   nIterations = 1000,
+  maxSeconds = 60,
   a = 1,
   nCores = 0,
   quiet = FALSE
@@ -31,10 +32,15 @@ and the initial feature allocation is obtained by thresholding according to
 chosen (by lowest expected loss) to be optimized in the sweetening phase.}
 
 \item{nIterations}{The number of iterations (i.e., proposed changes) to
-consider per draw in the sweetening phase.}
+consider per initial estimate in the sweetening phase, although the actual
+number may be less due to the \code{maxSeconds} argument.}
+
+\item{maxSeconds}{Stop sweetening once the total elapse time exceeds this
+value.}
 
 \item{a}{A numeric scalar for the cost parameter of generalized Hamming
-distance used in FARO loss.}
+distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
+to \eqn{2 - a}.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to
@@ -47,12 +53,14 @@ A list with the following elements:
 \itemize{
 \item estimate - The feature allocation point estimate in binary matrix form.
 \item expectedLoss - The estimated expected FARO loss of the point estimate.
-\item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
 \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
 \item secondsInitialization - The elapsed time in the initialization phrase.
 \item secondsSweetening - The elapsed time in the sweetening phrase.
+\item secondsTotal - The total elapsed time.
+\item whichSweet - The proposal number (out of \code{nSweet}) from which the point estimate was found.
 \item nInit - The original supplied value of \code{nInit}.
 \item nSweet - The original supplied value of \code{nSweet}.
+\item a - The original supplied value of \code{a}.
 }
 }
 \description{
