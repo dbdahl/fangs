@@ -20,7 +20,6 @@ fn fangs(
     samples: Rval,
     n_iterations: Rval,
     max_seconds: Rval,
-    allow_interrupts_while_sweetening: Rval,
     n_baselines: Rval,
     n_sweet: Rval,
     a: Rval,
@@ -38,7 +37,6 @@ fn fangs(
     let n_sweet = n_sweet.as_usize().max(1).min(n_baselines);
     let n_iterations = n_iterations.as_usize();
     let max_seconds = max_seconds.as_f64();
-    let allow_interrupts_while_sweetening = allow_interrupts_while_sweetening.as_bool();
     let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
@@ -204,35 +202,6 @@ fn fangs(
     }
     let seconds_in_initialization = timer.total_as_secs_f64();
     let mut period_timer = PeriodicTimer::new(1.0);
-    if !allow_interrupts_while_sweetening {
-        pool.install(|| {
-            sweets
-                .par_iter_mut()
-                .for_each(|(z, weight_matrices, loss, _, n_accepts, when, rng)| {
-                    let mut iteration_counter = 0;
-                    while iteration_counter < n_iterations
-                        && timer.total_as_secs_f64() < max_seconds
-                    {
-                        iteration_counter += 1;
-                        let n_features = z.ncols();
-                        let total_length = n_items * n_features;
-                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                            [index / ncols, index % ncols]
-                        }
-                        let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                        flip_bit(z, weight_matrices, a, index, &views);
-                        let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
-                        if new_loss < *loss {
-                            *n_accepts += 1;
-                            *when = iteration_counter;
-                            *loss = new_loss;
-                        } else {
-                            flip_bit(z, weight_matrices, a, index, &views);
-                        }
-                    }
-                })
-        });
-    } else {
         let mut iteration_counter = 0;
         while iteration_counter < n_iterations && timer.total_as_secs_f64() < max_seconds {
             iteration_counter += 1;
@@ -298,7 +267,6 @@ fn fangs(
             rprint!("\n");
             r::flush_console();
         }
-    }
     let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
     if timer.echo() {
         rprint!(
@@ -347,12 +315,13 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(7, &mut pc);
+    let list = Rval::new_list(8, &mut pc);
     list.names_gets(Rval::new(
         [
             "estimate",
             "expectedLoss",
             "iteration",
+            "nIterations",
             "secondsInitialization",
             "secondsSweetening",
             "secondsTotal",
@@ -363,10 +332,11 @@ fn fangs(
     list.set_list_element(0, estimate);
     list.set_list_element(1, Rval::new(best_loss, &mut pc));
     list.set_list_element(2, Rval::new(best_iteration as i32, &mut pc));
-    list.set_list_element(3, Rval::new(seconds_in_initialization, &mut pc));
-    list.set_list_element(4, Rval::new(seconds_in_sweetening, &mut pc));
-    list.set_list_element(6, Rval::new((sweeten_number + 1) as i32, &mut pc));
-    list.set_list_element(5, Rval::new(timer.total_as_secs_f64(), &mut pc));
+    list.set_list_element(3, Rval::new((iteration_counter + 1) as i32, &mut pc));
+    list.set_list_element(4, Rval::new(seconds_in_initialization, &mut pc));
+    list.set_list_element(5, Rval::new(seconds_in_sweetening, &mut pc));
+    list.set_list_element(7, Rval::new((sweeten_number + 1) as i32, &mut pc));
+    list.set_list_element(6, Rval::new(timer.total_as_secs_f64(), &mut pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();

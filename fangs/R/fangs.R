@@ -32,7 +32,8 @@
 #' \itemize{
 #'   \item estimate - The feature allocation point estimate in binary matrix form.
 #'   \item expectedLoss - The estimated expected FARO loss of the point estimate.
-#'   \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
+#'   \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found while sweetening.
+#'   \item nIterations - The number of sweetening iteration performed.
 #'   \item secondsInitialization - The elapsed time in the initialization phrase.
 #'   \item secondsSweetening - The elapsed time in the sweetening phrase.
 #'   \item secondsTotal - The total elapsed time.
@@ -59,11 +60,7 @@ fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, maxSeconds=60, 
     warning("Using the 'draws' method.")
     .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
   } else {
-    allowInterruptsWhileSweeteening <- Sys.getenv("FANGS_ALLOW_INTERRUPTS_WHILE_SWEETENING") == "TRUE"
-    if ( allowInterruptsWhileSweeteening ) {
-      warning("Allowing interrupts whilie sweetening.")
-    }
-    .Call(.fangs, samples, nIterations, maxSeconds, allowInterruptsWhileSweeteening, nInit, nSweet, a, nCores, quiet)
+    .Call(.fangs, samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, quiet)
   }
   c(result, nInit=nInit, nSweet=nSweet, a=a)
 }
