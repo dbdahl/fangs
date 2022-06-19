@@ -202,48 +202,48 @@ fn fangs(
     }
     let seconds_in_initialization = timer.total_as_secs_f64();
     let mut period_timer = PeriodicTimer::new(1.0);
-        let mut iteration_counter = 0;
-        while iteration_counter < n_iterations && timer.total_as_secs_f64() < max_seconds {
-            iteration_counter += 1;
-            pool.install(|| {
-                sweets.par_iter_mut().for_each(
-                    |(z, weight_matrices, loss, _, n_accepts, when, rng)| {
-                        let n_features = z.ncols();
-                        let total_length = n_items * n_features;
-                        fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                            [index / ncols, index % ncols]
-                        }
-                        let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                        flip_bit(z, weight_matrices, a, index, &views);
-                        let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
-                        if new_loss < *loss {
-                            *n_accepts += 1;
-                            *when = iteration_counter;
-                            *loss = new_loss;
-                        } else {
-                            flip_bit(z, weight_matrices, a, index, &views);
-                        }
-                    },
-                );
-            });
-            if !quiet || status_file.exists() {
-                period_timer.maybe(iteration_counter == n_iterations, || {
-                    if quiet && status_file.exists() {
-                        interrupted |= rprint!(
-                            "{}",
-                            format!(
-                                "*** {} exists, so forcing status display.\n",
-                                status_file.display()
-                            )
-                            .as_str()
-                        );
-                        r::flush_console();
+    let mut iteration_counter = 0;
+    while iteration_counter < n_iterations && timer.total_as_secs_f64() < max_seconds {
+        iteration_counter += 1;
+        pool.install(|| {
+            sweets.par_iter_mut().for_each(
+                |(z, weight_matrices, loss, _, n_accepts, when, rng)| {
+                    let n_features = z.ncols();
+                    let total_length = n_items * n_features;
+                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+                        [index / ncols, index % ncols]
                     }
-                    sweets.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
-                    let best = sweets.first().unwrap();
+                    let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
+                    flip_bit(z, weight_matrices, a, index, &views);
+                    let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
+                    if new_loss < *loss {
+                        *n_accepts += 1;
+                        *when = iteration_counter;
+                        *loss = new_loss;
+                    } else {
+                        flip_bit(z, weight_matrices, a, index, &views);
+                    }
+                },
+            );
+        });
+        if !quiet || status_file.exists() {
+            period_timer.maybe(iteration_counter == n_iterations, || {
+                if quiet && status_file.exists() {
                     interrupted |= rprint!(
                         "{}",
                         format!(
+                            "*** {} exists, so forcing status display.\n",
+                            status_file.display()
+                        )
+                        .as_str()
+                    );
+                    r::flush_console();
+                }
+                sweets.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
+                let best = sweets.first().unwrap();
+                interrupted |= rprint!(
+                    "{}",
+                    format!(
                         "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accept{}.",
                         iteration_counter,
                         best.5,
@@ -252,21 +252,21 @@ fn fangs(
                         best.4,
                         if best.4 == 1 { "" } else { "s" }
                     )
-                        .as_str()
-                    );
-                    r::flush_console();
-                });
-            }
-            if interrupted || r::check_user_interrupt() {
-                rprint!("\nCaught user interrupt, so breaking out early.");
+                    .as_str()
+                );
                 r::flush_console();
-                break;
-            }
+            });
         }
-        if !quiet {
-            rprint!("\n");
+        if interrupted || r::check_user_interrupt() {
+            rprint!("\nCaught user interrupt, so breaking out early.");
             r::flush_console();
+            break;
         }
+    }
+    if !quiet {
+        rprint!("\n");
+        r::flush_console();
+    }
     let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
     if timer.echo() {
         rprint!(
@@ -307,15 +307,14 @@ fn fangs(
             }
         })
         .collect();
-    let (estimate, estimate_slice) =
-        Rval::new_matrix_double(n_items, columns_to_keep.len(), &mut pc);
+    let (estimate, estimate_slice) = Rval::new_matrix_double(n_items, columns_to_keep.len(), pc);
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(8, &mut pc);
+    let list = Rval::new_list(8, pc);
     list.names_gets(Rval::new(
         [
             "estimate",
@@ -327,16 +326,16 @@ fn fangs(
             "secondsTotal",
             "whichSweet",
         ],
-        &mut pc,
+        pc,
     ));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, Rval::new(best_loss, &mut pc));
-    list.set_list_element(2, Rval::new(best_iteration as i32, &mut pc));
-    list.set_list_element(3, Rval::new((iteration_counter + 1) as i32, &mut pc));
-    list.set_list_element(4, Rval::new(seconds_in_initialization, &mut pc));
-    list.set_list_element(5, Rval::new(seconds_in_sweetening, &mut pc));
-    list.set_list_element(7, Rval::new((sweeten_number + 1) as i32, &mut pc));
-    list.set_list_element(6, Rval::new(timer.total_as_secs_f64(), &mut pc));
+    list.set_list_element(1, Rval::new(best_loss, pc));
+    list.set_list_element(2, Rval::new(best_iteration as i32, pc));
+    list.set_list_element(3, Rval::new((iteration_counter + 1) as i32, pc));
+    list.set_list_element(4, Rval::new(seconds_in_initialization, pc));
+    list.set_list_element(5, Rval::new(seconds_in_sweetening, pc));
+    list.set_list_element(7, Rval::new((sweeten_number + 1) as i32, pc));
+    list.set_list_element(6, Rval::new(timer.total_as_secs_f64(), pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -597,15 +596,14 @@ fn fangs_old(
             }
         })
         .collect();
-    let (estimate, estimate_slice) =
-        Rval::new_matrix_double(n_items, columns_to_keep.len(), &mut pc);
+    let (estimate, estimate_slice) = Rval::new_matrix_double(n_items, columns_to_keep.len(), pc);
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(7, &mut pc);
+    let list = Rval::new_list(7, pc);
     list.names_gets(Rval::new(
         [
             "estimate",
@@ -616,16 +614,16 @@ fn fangs_old(
             "secondsSweetening",
             "whichBest",
         ],
-        &mut pc,
+        pc,
     ));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, Rval::new(best_loss, &mut pc));
-    list.set_list_element(2, Rval::new(best_iteration as i32, &mut pc));
-    list.set_list_element(3, Rval::try_new(iteration_counter, &mut pc).unwrap());
-    list.set_list_element(4, Rval::new(seconds_in_initialization, &mut pc));
-    list.set_list_element(6, Rval::new((candidate_number + 1) as i32, &mut pc));
+    list.set_list_element(1, Rval::new(best_loss, pc));
+    list.set_list_element(2, Rval::new(best_iteration as i32, pc));
+    list.set_list_element(3, Rval::try_new(iteration_counter, pc).unwrap());
+    list.set_list_element(4, Rval::new(seconds_in_initialization, pc));
+    list.set_list_element(6, Rval::new((candidate_number + 1) as i32, pc));
     let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
-    list.set_list_element(5, Rval::new(seconds_in_sweetening, &mut pc));
+    list.set_list_element(5, Rval::new(seconds_in_sweetening, pc));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -648,7 +646,7 @@ fn compute_expected_loss(z: Rval, samples: Rval, a: Rval, n_cores: Rval) -> Rval
     }
     Rval::new(
         expected_loss_from_samples(make_view(z), &views, a, &pool),
-        &mut pc,
+        pc,
     )
 }
 
@@ -663,7 +661,7 @@ fn compute_loss(z1: Rval, z2: Rval, a: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    Rval::new(loss, &mut pc)
+    Rval::new(loss, pc)
 }
 
 #[roxido]
@@ -713,7 +711,7 @@ fn compute_loss_permutations(z1: Rval, z2: Rval, a: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    Rval::new(loss, &mut pc)
+    Rval::new(loss, pc)
 }
 
 #[roxido]
@@ -736,11 +734,11 @@ fn compute_loss_augmented(z1: Rval, z2: Rval, a: Rval) -> Rval {
     for x in solution.1.iter_mut() {
         *x += 1;
     }
-    let list = Rval::new_list(3, &mut pc);
-    list.names_gets(Rval::new(["loss", "permutation1", "permutation2"], &mut pc));
-    list.set_list_element(0, Rval::new(loss, &mut pc));
-    list.set_list_element(1, Rval::try_new(&solution.1[..], &mut pc).unwrap());
-    list.set_list_element(2, Rval::try_new(&solution.0[..], &mut pc).unwrap());
+    let list = Rval::new_list(3, pc);
+    list.names_gets(Rval::new(["loss", "permutation1", "permutation2"], pc));
+    list.set_list_element(0, Rval::new(loss, pc));
+    list.set_list_element(1, Rval::try_new(&solution.1[..], pc).unwrap());
+    list.set_list_element(2, Rval::try_new(&solution.0[..], pc).unwrap());
     list
 }
 
