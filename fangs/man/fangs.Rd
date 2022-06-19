@@ -53,7 +53,8 @@ A list with the following elements:
 \itemize{
 \item estimate - The feature allocation point estimate in binary matrix form.
 \item expectedLoss - The estimated expected FARO loss of the point estimate.
-\item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found.
+\item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found while sweetening.
+\item nIterations - The number of sweetening iteration performed.
 \item secondsInitialization - The elapsed time in the initialization phrase.
 \item secondsSweetening - The elapsed time in the sweetening phrase.
 \item secondsTotal - The total elapsed time.
