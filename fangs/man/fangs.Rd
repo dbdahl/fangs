@@ -35,8 +35,8 @@ chosen (by lowest expected loss) to be optimized in the sweetening phase.}
 consider per initial estimate in the sweetening phase, although the actual
 number may be less due to the \code{maxSeconds} argument.}
 
-\item{maxSeconds}{Stop sweetening once the total elapsed time exceeds this
-value.}
+\item{maxSeconds}{Stop the search and return the current best estimate once
+the elapsed time in the sweetening phase exceeds this value.}
 
 \item{a}{A numeric scalar for the cost parameter of generalized Hamming
 distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal

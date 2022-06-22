@@ -40,7 +40,7 @@ fn fangs_old(samples: Rval, nIterations: Rval, nInit: Rval, nSweet: Rval, a: Rva
 }
 
 #[roxido]
-fn fangs(samples: Rval, nIterations: Rval, maxSeconds: Rval, allowInterruptsWhileSweeteening: Rval, nInit: Rval, nSweet: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
+fn fangs(samples: Rval, nIterations: Rval, maxSeconds: Rval, nInit: Rval, nSweet: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
     Rval::nil()
 }
 */
@@ -85,7 +85,7 @@ extern "C" fn R_init_fangs_rust(info: *mut rbindings::DllInfo) {
     call_routines.push(rbindings::R_CallMethodDef {
         name: _names.last().unwrap().as_ptr(),
         fun: unsafe { std::mem::transmute(crate::fangs as *const u8) },
-        numArgs: 9,
+        numArgs: 8,
     });
     call_routines.push(rbindings::R_CallMethodDef {
         name: std::ptr::null(),

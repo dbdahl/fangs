@@ -58,9 +58,9 @@ fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, maxSeconds=60, 
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
   result <- if ( Sys.getenv("FANGS_USE_DRAWS") == "TRUE" ) {
     warning("Using the 'draws' method.")
-    .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
+    .Call(.fangs_old, samples, nIterations,             nInit, nSweet, a, nCores, quiet)
   } else {
-    .Call(.fangs, samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, quiet)
+    .Call(.fangs,     samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, quiet)
   }
   c(result, nInit=nInit, nSweet=nSweet, a=a)
 }
