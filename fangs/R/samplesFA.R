@@ -8,7 +8,7 @@
 #'
 #' @format An object of class \sQuote{list} containing 100 posterior samples
 #'   from Warr et al. (2022)'s analysis. Each list elements encodes one feature
-#'   allocation as an binary matrix, with items in the rows and feature
+#'   allocation as a binary matrix, with items in the rows and feature
 #'   allocations in the columns. These 100 feature allocation samples are a
 #'   subset of the original 1000 samples obtained using MCMC in the original
 #'   simulation study described by Warr et al. (2022).

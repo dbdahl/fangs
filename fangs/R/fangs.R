@@ -18,7 +18,7 @@
 #' @param nIterations The number of iterations (i.e., proposed changes) to
 #'   consider per initial estimate in the sweetening phase, although the actual
 #'   number may be less due to the \code{maxSeconds} argument.
-#' @param maxSeconds Stop sweetening once the total elapse time exceeds this
+#' @param maxSeconds Stop sweetening once the total elapsed time exceeds this
 #'   value.
 #' @param a A numeric scalar for the cost parameter of generalized Hamming
 #'   distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
@@ -33,7 +33,7 @@
 #'   \item estimate - The feature allocation point estimate in binary matrix form.
 #'   \item expectedLoss - The estimated expected FARO loss of the point estimate.
 #'   \item iteration - The iteration number (out of \code{nIterations}) at which the point estimate was found while sweetening.
-#'   \item nIterations - The number of sweetening iteration performed.
+#'   \item nIterations - The number of sweetening iterations performed.
 #'   \item secondsInitialization - The elapsed time in the initialization phrase.
 #'   \item secondsSweetening - The elapsed time in the sweetening phrase.
 #'   \item secondsTotal - The total elapsed time.
