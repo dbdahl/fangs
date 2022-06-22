@@ -18,8 +18,8 @@
 #' @param nIterations The number of iterations (i.e., proposed changes) to
 #'   consider per initial estimate in the sweetening phase, although the actual
 #'   number may be less due to the \code{maxSeconds} argument.
-#' @param maxSeconds Stop sweetening once the total elapsed time exceeds this
-#'   value.
+#' @param maxSeconds Stop the search and return the current best estimate once
+#'   the elapsed time in the sweetening phase exceeds this value.
 #' @param a A numeric scalar for the cost parameter of generalized Hamming
 #'   distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
 #'   to \eqn{2 - a}.
