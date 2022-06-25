@@ -57,7 +57,6 @@ load_library <- function(libname, pkgname, must_be_silent) {
         calls <- sys.calls()
         "suppressPackageStartupMessages" %in% sapply(seq_len(sys.nframe()), \(i) as.character(calls[[i]])[1])
     })
-    cwd <- getwd()
     temp_dir <- tempdir(check=TRUE)
     target_dir <- tempfile(pattern="rust-", tmpdir=temp_dir)
     dir.create(target_dir, showWarnings=FALSE)
@@ -66,11 +65,12 @@ load_library <- function(libname, pkgname, must_be_silent) {
     } else if ( dir.exists(file.path(libname, pkgname, "inst", "rust")) ) {
         file.copy(list.files(file.path(libname, pkgname, "inst", "rust"), full.names=TRUE), target_dir, recursive=TRUE)
     }
-    setwd(target_dir)
+    cwd <- getwd()
     on.exit({
         unlink(target_dir, recursive=TRUE, force=TRUE, expand=FALSE)
         setwd(cwd)
     })
+    setwd(target_dir)
     utils::untar("vendor.tar.gz", tar="internal")
     quiet_args <- if ( use_packageStartupMessage ) "--quiet" else character(0)
     is_windows <- .Platform$OS.type=="windows"
