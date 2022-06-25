@@ -24,7 +24,8 @@ pkg_envir <- environment()
 
 #' @importFrom tools R_user_dir
 #' @importFrom utils packageVersion
-#' @importFrom cargo run
+# #' @importFrom cargo run
+#' @importFrom cargo shlib_set shlib_get
 #' @importFrom utils untar
 load_library <- function(libname, pkgname, must_be_silent) {
     if ( any(dir.exists(file.path(libname, pkgname, c("libs", "src")))) ) {
@@ -67,8 +68,8 @@ load_library <- function(libname, pkgname, must_be_silent) {
     }
     cwd <- getwd()
     on.exit({
-        unlink(target_dir, recursive=TRUE, force=TRUE, expand=FALSE)
         setwd(cwd)
+        unlink(target_dir, recursive=TRUE, force=TRUE, expand=FALSE)
     })
     setwd(target_dir)
     utils::untar("vendor.tar.gz", tar="internal")
@@ -82,7 +83,7 @@ load_library <- function(libname, pkgname, must_be_silent) {
     } else {
         c('-C', 'target-cpu=native')
     }
-    status <- cargo::run(quiet_args, "build", "--offline", "--release", minimum_version=file.path(libname, pkgname), rustflags=rustflags, use_packageStartupMessage=use_packageStartupMessage, must_be_silent=must_be_silent)
+    status <- run(quiet_args, "build", "--offline", "--release", minimum_version=file.path(libname, pkgname), rustflags=rustflags, use_packageStartupMessage=use_packageStartupMessage, must_be_silent=must_be_silent)
     if ( status != 0 ) return(FALSE)
     libname <- if ( is_windows ) "rust.dll" else if ( is_mac ) "librust.dylib" else "librust.so"
     cargo::shlib_set(pkgname, file.path("target","release",libname), FALSE, use_packageStartupMessage, must_be_silent)
