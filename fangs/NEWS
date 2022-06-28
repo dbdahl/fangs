@@ -1,3 +1,6 @@
+0.1.7 (2022-07-02)
+ * Moved infrustructure improvements to cargo package.
+
 0.1.6 (2022-06-25)
   * Modified configure script based on CRAN feedback.
   * Implemented CRAN suggestion regarding getwd(), setwd(), and on.exit().
