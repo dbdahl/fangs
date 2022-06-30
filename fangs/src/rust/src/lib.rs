@@ -315,27 +315,24 @@ fn fangs(
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
     let list = Rval::new_list(8, pc);
-    list.names_gets(Rval::new(
-        [
-            "estimate",
-            "expectedLoss",
-            "iteration",
-            "nIterations",
-            "secondsInitialization",
-            "secondsSweetening",
-            "secondsTotal",
-            "whichSweet",
-        ],
-        pc,
-    ));
+    list.names_gets(rval!([
+        "estimate",
+        "expectedLoss",
+        "iteration",
+        "nIterations",
+        "secondsInitialization",
+        "secondsSweetening",
+        "secondsTotal",
+        "whichSweet",
+    ]));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, Rval::new(best_loss, pc));
-    list.set_list_element(2, Rval::new(best_iteration as i32, pc));
-    list.set_list_element(3, Rval::new((iteration_counter + 1) as i32, pc));
-    list.set_list_element(4, Rval::new(seconds_in_initialization, pc));
-    list.set_list_element(5, Rval::new(seconds_in_sweetening, pc));
-    list.set_list_element(7, Rval::new((sweeten_number + 1) as i32, pc));
-    list.set_list_element(6, Rval::new(timer.total_as_secs_f64(), pc));
+    list.set_list_element(1, rval!(best_loss));
+    list.set_list_element(2, rval!(best_iteration as i32));
+    list.set_list_element(3, rval!((iteration_counter + 1) as i32));
+    list.set_list_element(4, rval!(seconds_in_initialization));
+    list.set_list_element(5, rval!(seconds_in_sweetening));
+    list.set_list_element(7, rval!((sweeten_number + 1) as i32));
+    list.set_list_element(6, rval!(timer.total_as_secs_f64()));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -604,26 +601,23 @@ fn fangs_old(
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
     let list = Rval::new_list(7, pc);
-    list.names_gets(Rval::new(
-        [
-            "estimate",
-            "loss",
-            "iteration",
-            "nIterations",
-            "secondsInitialization",
-            "secondsSweetening",
-            "whichBest",
-        ],
-        pc,
-    ));
+    list.names_gets(rval!([
+        "estimate",
+        "loss",
+        "iteration",
+        "nIterations",
+        "secondsInitialization",
+        "secondsSweetening",
+        "whichBest",
+    ]));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, Rval::new(best_loss, pc));
-    list.set_list_element(2, Rval::new(best_iteration as i32, pc));
+    list.set_list_element(1, rval!(best_loss));
+    list.set_list_element(2, rval!(best_iteration as i32));
     list.set_list_element(3, Rval::try_new(iteration_counter, pc).unwrap());
-    list.set_list_element(4, Rval::new(seconds_in_initialization, pc));
-    list.set_list_element(6, Rval::new((candidate_number + 1) as i32, pc));
+    list.set_list_element(4, rval!(seconds_in_initialization));
+    list.set_list_element(6, rval!((candidate_number + 1) as i32));
     let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
-    list.set_list_element(5, Rval::new(seconds_in_sweetening, pc));
+    list.set_list_element(5, rval!(seconds_in_sweetening));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
@@ -644,10 +638,7 @@ fn compute_expected_loss(z: Rval, samples: Rval, a: Rval, n_cores: Rval) -> Rval
     for i in 0..n_samples {
         views.push(make_view(samples.get_list_element(i)));
     }
-    Rval::new(
-        expected_loss_from_samples(make_view(z), &views, a, &pool),
-        pc,
-    )
+    rval!(expected_loss_from_samples(make_view(z), &views, a, &pool))
 }
 
 #[roxido]
@@ -661,7 +652,7 @@ fn compute_loss(z1: Rval, z2: Rval, a: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    Rval::new(loss, pc)
+    rval!(loss)
 }
 
 #[roxido]
@@ -711,7 +702,7 @@ fn compute_loss_permutations(z1: Rval, z2: Rval, a: Rval) -> Rval {
     } else {
         panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
-    Rval::new(loss, pc)
+    rval!(loss)
 }
 
 #[roxido]
@@ -735,8 +726,8 @@ fn compute_loss_augmented(z1: Rval, z2: Rval, a: Rval) -> Rval {
         *x += 1;
     }
     let list = Rval::new_list(3, pc);
-    list.names_gets(Rval::new(["loss", "permutation1", "permutation2"], pc));
-    list.set_list_element(0, Rval::new(loss, pc));
+    list.names_gets(rval!(["loss", "permutation1", "permutation2"]));
+    list.set_list_element(0, rval!(loss));
     list.set_list_element(1, Rval::try_new(&solution.1[..], pc).unwrap());
     list.set_list_element(2, Rval::try_new(&solution.0[..], pc).unwrap());
     list

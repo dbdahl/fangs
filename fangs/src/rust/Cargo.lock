@@ -70,9 +70,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 
 [[package]]
 name = "getrandom"
@@ -297,14 +297,14 @@ dependencies = [
 
 [[package]]
 name = "roxido"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "roxido_macro",
 ]
 
 [[package]]
 name = "roxido_macro"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "quote",
  "syn",
