@@ -18,17 +18,11 @@
 #' @examples
 #' Z1 <- matrix(c(0,1,1,0,1,1,0,1,1,1,1,1), byrow=TRUE, nrow=6)
 #' Z2 <- matrix(c(0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0), byrow=TRUE, nrow=6)
-#' # R_CARGO \dontrun{
-#' # R_CARGO # Example disabled since Cargo was not found when installing from source package.
-#' # R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 #' compute_loss(Z1,Z2)
 #' x <- compute_loss(Z1,Z2,a=1,TRUE)
-#' # R_CARGO }
 #' sum(cbind(Z1,0) != Z2)
-#' # R_CARGO \dontrun{
 #' sum(cbind(Z1,0)[,x$permutation1] != Z2)
 #' sum(cbind(Z1,0) != Z2[,x$permutation2])
-#' # R_CARGO }
 #'
 compute_loss <- function(Z1, Z2, a=1.0, augmented=FALSE) {
   if ( ! is.numeric(Z1) ) stop("'Z1' should be numeric.")

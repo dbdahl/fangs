@@ -682,7 +682,7 @@ fn compute_loss_permutations(z1: Rval, z2: Rval, a: Rval) -> Rval {
                     } else {
                         v2.column(j)
                     };
-                    let aa = std::iter::zip(c1, c2);
+                    let aa = c1.iter().zip(c2); // std::iter::zip(c1, c2);
                     loss += aa.fold(0.0, |sum, (&x1, &x2)| {
                         sum + if x1 != x2 {
                             if x1 > x2 {

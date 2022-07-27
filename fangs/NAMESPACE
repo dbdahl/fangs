@@ -3,8 +3,4 @@
 export(compute_expected_loss)
 export(compute_loss)
 export(fangs)
-importFrom(cargo,run)
-importFrom(cargo,shlib_get)
-importFrom(cargo,shlib_set)
-importFrom(utils,untar)
 useDynLib(fangs, .registration = TRUE)

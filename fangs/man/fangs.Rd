@@ -71,10 +71,6 @@ provided.
 \examples{
 # To reduce load on CRAN testing servers, limit the number of iterations.
 data(samplesFA)
-# R_CARGO \dontrun{
-# R_CARGO # Example disabled since Cargo was not found when installing from source package.
-# R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 fangs(samplesFA, nIterations=100, nCores=2)
-# R_CARGO }
 
 }

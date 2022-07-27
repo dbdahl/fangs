@@ -47,11 +47,7 @@
 #' @examples
 #' # To reduce load on CRAN testing servers, limit the number of iterations.
 #' data(samplesFA)
-#' # R_CARGO \dontrun{
-#' # R_CARGO # Example disabled since Cargo was not found when installing from source package.
-#' # R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 #' fangs(samplesFA, nIterations=100, nCores=2)
-#' # R_CARGO }
 #'
 fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, maxSeconds=60, a=1.0, nCores=0, quiet=FALSE) {
   if ( a <= 0.0 || a >= 2.0 ) stop("'a' must be in (0,2).")

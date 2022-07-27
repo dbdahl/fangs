@@ -32,10 +32,6 @@ A Monte Carlo estimate of the expected FARO loss is computed for a feature alloc
 \examples{
 data(samplesFA)
 Z <- matrix(sample(c(0,1), 60, replace=TRUE), byrow=TRUE, nrow=20)
-# R_CARGO \dontrun{
-# R_CARGO # Example disabled since Cargo was not found when installing from source package.
-# R_CARGO # You can still run the example if you install Cargo. Hint: cargo::install().
 compute_expected_loss(samplesFA, Z)
-# R_CARGO }
 
 }
