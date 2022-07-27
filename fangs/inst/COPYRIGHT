@@ -1,0 +1,4 @@
+This R package itself is copyrighted by the authors, but the package depends on
+Rust crates, which have their own copyrights. For specifics, please see the
+Rust crates included in the package source in the 'src/rust' directory, most of
+which are in the archive 'vendor.tar.xz'.
