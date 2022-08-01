@@ -7,7 +7,7 @@ source("tools/cargo_run.R")
 setwd("src/rust")
 if ( ! dir.exists("vendor") ) untar("vendor.tar.xz", tar="internal")
 
-if ( run('build', '--offline', '--release', '--jobs', '2', minimum_version='../..', offer_install=FALSE) == 0 ) {
+if ( run('build', '--offline', '--release', '--jobs', '2', minimum_version='../..', cargo_home_method="tempdir") == 0 ) {
 
     file.copy("target/release/librust.a", "..", overwrite=TRUE)
     setwd("../..")
