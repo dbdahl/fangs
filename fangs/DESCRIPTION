@@ -7,7 +7,6 @@ Authors@R: c(person(given="David B.",family="Dahl",role=c("aut","cre"),email="da
     person(given="Authors of depending Rust crates",role=c("ctb")))
 Description: A neighborhood-based, greedy search algorithm is performed to estimate a feature allocation by minimizing the expected loss based on posterior samples from the feature allocation distribution.
 License: MIT + file LICENSE | Apache License 2.0
-Copyright: See COPYRIGHTS file
 Depends: R (>= 4.2.0)
 SystemRequirements: Cargo (>= 1.56) for installation from source: see INSTALL file
 Encoding: UTF-8

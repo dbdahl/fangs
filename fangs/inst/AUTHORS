@@ -7,7 +7,7 @@ The R package authors are:
 
 The Rust crates upon which this package depends are included in the package
 source in the 'src/rust' directory, most of which are in the archive
-'vendor.tar.xz'.  The depending Rust crate names and authors are as follows:
+'vendor.tar.xz'.  The names and authors are as follows:
 
 approx         : Brendan Zabarauskas <bjzaba@yahoo.com.au>
 autocfg        : Josh Stone <cuviper@gmail.com>
@@ -29,15 +29,15 @@ num-traits     : The Rust Project Developers
 num_cpus       : Sean McArthur <sean@seanmonstar.com>
 once_cell      : Aleksey Kladov <aleksey.kladov@gmail.com>
 ppv-lite86     : The CryptoCorrosion Contributors
-proc-macro2    : David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com>
+proc-macro2    : Alex Crichton <alex@alexcrichton.com>, David Tolnay <dtolnay@gmail.com>
 quote          : David Tolnay <dtolnay@gmail.com>
 rand           : The Rust Project Developers, The Rand Project Developers
 rand_chacha    : The CryptoCorrosion Contributors, The Rust Project Developers, The Rand Project Developers
-rand_core      : The Rand Project Developers, The Rust Project Developers
+rand_core      : The Rust Project Developers, The Rand Project Developers
 rand_pcg       : The Rand Project Developers
 rawpointer     : bluss
-rayon          : Josh Stone <cuviper@gmail.com>, Niko Matsakis <niko@alum.mit.edu>
-rayon-core     : Niko Matsakis <niko@alum.mit.edu>, Josh Stone <cuviper@gmail.com>
+rayon          : Niko Matsakis <niko@alum.mit.edu>, Josh Stone <cuviper@gmail.com>
+rayon-core     : Josh Stone <cuviper@gmail.com>, Niko Matsakis <niko@alum.mit.edu>
 roxido         : David B. Dahl <dahl@stat.byu.edu>
 roxido_macro   : David B. Dahl <dahl@stat.byu.edu>
 scopeguard     : bluss

@@ -10,12 +10,11 @@ if ( ! dir.exists("vendor") ) untar("vendor.tar.xz", tar="internal")
 if ( run('build', '--offline', '--release', '--jobs', '2', minimum_version='../..', cargo_home_method="tempdir") == 0 ) {
 
     file.copy("target/release/librust.a", "..", overwrite=TRUE)
-    setwd("../..")
     message("Built Rust static library.")
 
 } else {
 
-    message("Could not find a suitable Cargo installation.\nOne solution is to run: cargo::install()")
+    message("Could not find a suitable Cargo installation.\nOne solution is to run 'cargo::install()'")
 
 }
 
