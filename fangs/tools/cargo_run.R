@@ -159,12 +159,11 @@ run <- function(..., minimum_version=".", search_methods=c("path","convention","
   msg("---\n")
   for ( method in search_methods ) {
     if ( method == "path" ) {
-      msg("Trying to find a suitable Cargo using the system path.\n")
+      msg("Trying to find a suitable Cargo using the PATH environment variable.\n")
       status <- run_engine("R_CARGO_RUN_PATH", TRUE, Sys.which("cargo"), FALSE)
       if ( ( ! is.null(status) ) && ( ! is.numeric(status) || ( status == 0 ) ) ) return(status)
     } else if ( method == "convention" ) {
-      prefix <- ifelse(windows,"%USERPROFILE%","$HOME")
-      msg(sprintf("Trying to find a suitable Cargo at: %s/.cargo\n", prefix))
+      msg("Trying to find a suitable Cargo using the conventional location.\n")
       prefix_dir <- Sys.getenv(ifelse(windows,"USERPROFILE","HOME"))
       status <- run_engine(
         "R_CARGO_RUN_CONVENTION",
@@ -181,7 +180,7 @@ run <- function(..., minimum_version=".", search_methods=c("path","convention","
       if ( ( ! is.null(status) ) && ( ! is.numeric(status) || ( status == 0 ) ) ) return(status)
     }
   }
-  msg("No suitable version of Cargo was found.\nPlease try again after running 'cargo::install()' in an interactive session.\n---\n")
+  msg("No suitable version of Cargo was found.\nOne solution is to run 'install()' from the 'cargo' package.\n---\n")
   1
 }
 

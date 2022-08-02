@@ -14,7 +14,7 @@ if ( run('build', '--offline', '--release', '--jobs', '2', minimum_version='../.
 
 } else {
 
-    message("Could not find a suitable Cargo installation.\nOne solution is to run 'cargo::install()'")
+    message("No suitable version of Cargo was found.\nOne solution is to run 'install()' from the 'cargo' package.")
 
 }
 
