@@ -90,7 +90,7 @@ run <- function(..., minimum_version=".", search_methods=c("path","convention","
         if ( ! can_update ) {
           rustup_path <- Sys.which("rustup")
           if ( rustup_path != "" ) {
-            msg(sprintf("Try running '%s' to update the Cargo installation.\n", rustup_path))
+            msg(sprintf("You could run '%s' to update the Cargo installation.\n", rustup_path))
             return(204)
           } else {
             msg("Cannot upgrade this Cargo installation.\n")
@@ -100,7 +100,8 @@ run <- function(..., minimum_version=".", search_methods=c("path","convention","
           msg("Trying to upgrade this Cargo installation.\n")
         }
         rustup_cmd <- file.path(dirname(cargo_cmd), paste0("rustup", ifelse(windows,".exe","")))
-        exit_status <- system3(rustup_cmd, "update", env=c(RUSTUP_HOME=file.path(dirname(dirname(dirname(cargo_cmd))),"rustup"), vars))
+        cargo_home <- dirname(dirname(cargo_cmd))
+        exit_status <- system3(rustup_cmd, "update", env=c(vars, CARGO_HOME=cargo_home, RUSTUP_HOME=file.path(dirname(cargo_home),"rustup")))
         if ( exit_status != 0 ) {
           msg("Upgrade failed.\nPlease try again by running 'cargo::install()' in an interactive session.\n")
           return(exit_status)
