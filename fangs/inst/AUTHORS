@@ -1,7 +1,7 @@
 The R package authors are:
 
     David B. Dahl <dahl@stat.byu.edu> [aut, cre] (<https://orcid.org/0000-0002-8173-1547>)
-    Jacob Andros <androsrj@gmail.com> [aut] (<https://orcid.org/0000-0002-1289-385X>)
+    R. Jacob Andros <androsrj@gmail.com> [aut] (<https://orcid.org/0000-0002-1289-385X>)
     Devin J. Johnson <devin.j.johnson7@gmail.com> [aut] (<https://orcid.org/0000-0003-2619-6649>)
     Authors of depending Rust crates [ctb]
 
