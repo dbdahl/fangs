@@ -19,7 +19,7 @@ itertools     : bluss
 lapjv         : Andrii Dmytrenko <andrii.dmytrenko@deliveroo.co.uk>
 libc          : The Rust Project Developers
 log           : The Rust Project Developers
-matrixmultiply: R. Janis Goldschmidt, bluss
+matrixmultiply: bluss, R. Janis Goldschmidt
 memoffset     : Gilad Naaman <gilad.naaman@gmail.com>
 ndarray       : Ulrik Sverdrup "bluss", Jim Turner
 num-complex   : The Rust Project Developers
@@ -27,14 +27,14 @@ num-integer   : The Rust Project Developers
 num-traits    : The Rust Project Developers
 num_cpus      : Sean McArthur <sean@seanmonstar.com>
 ppv-lite86    : The CryptoCorrosion Contributors
-proc-macro2   : Alex Crichton <alex@alexcrichton.com>, David Tolnay <dtolnay@gmail.com>
+proc-macro2   : David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com>
 quote         : David Tolnay <dtolnay@gmail.com>
-rand          : The Rand Project Developers, The Rust Project Developers
-rand_chacha   : The CryptoCorrosion Contributors, The Rust Project Developers, The Rand Project Developers
+rand          : The Rust Project Developers, The Rand Project Developers
+rand_chacha   : The CryptoCorrosion Contributors, The Rand Project Developers, The Rust Project Developers
 rand_core     : The Rand Project Developers, The Rust Project Developers
 rand_pcg      : The Rand Project Developers
 rawpointer    : bluss
-rayon         : Josh Stone <cuviper@gmail.com>, Niko Matsakis <niko@alum.mit.edu>
+rayon         : Niko Matsakis <niko@alum.mit.edu>, Josh Stone <cuviper@gmail.com>
 rayon-core    : Josh Stone <cuviper@gmail.com>, Niko Matsakis <niko@alum.mit.edu>
 roxido        : David B. Dahl <dahl@stat.byu.edu>
 roxido_macro  : David B. Dahl <dahl@stat.byu.edu>
