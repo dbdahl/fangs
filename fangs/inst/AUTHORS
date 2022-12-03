@@ -1,13 +1,12 @@
-The R package authors are:
+The authors are:
 
     David B. Dahl <dahl@stat.byu.edu> [aut, cre] (<https://orcid.org/0000-0002-8173-1547>)
     R. Jacob Andros <androsrj@gmail.com> [aut] (<https://orcid.org/0000-0002-1289-385X>)
     Devin J. Johnson <devin.j.johnson7@gmail.com> [aut] (<https://orcid.org/0000-0003-2619-6649>)
     Authors of depending Rust crates [ctb]
 
-The Rust crates upon which this package depends are included in the package
-source in the 'src/rust' directory, most of which are in the archive
-'vendor.tar.xz'.  The names and authors are as follows:
+The depending Rust crates are in the 'src/rust' directory of the package source
+(including in the archive 'vendor.tar.xz') and give the authors as follows:
 
 approx        : Brendan Zabarauskas <bjzaba@yahoo.com.au>
 autocfg       : Josh Stone <cuviper@gmail.com>
@@ -19,9 +18,9 @@ itertools     : bluss
 lapjv         : Andrii Dmytrenko <andrii.dmytrenko@deliveroo.co.uk>
 libc          : The Rust Project Developers
 log           : The Rust Project Developers
-matrixmultiply: bluss, R. Janis Goldschmidt
+matrixmultiply: R. Janis Goldschmidt, bluss
 memoffset     : Gilad Naaman <gilad.naaman@gmail.com>
-ndarray       : Ulrik Sverdrup "bluss", Jim Turner
+ndarray       : Jim Turner, Ulrik Sverdrup "bluss"
 num-complex   : The Rust Project Developers
 num-integer   : The Rust Project Developers
 num-traits    : The Rust Project Developers
@@ -29,13 +28,13 @@ num_cpus      : Sean McArthur <sean@seanmonstar.com>
 ppv-lite86    : The CryptoCorrosion Contributors
 proc-macro2   : David Tolnay <dtolnay@gmail.com>, Alex Crichton <alex@alexcrichton.com>
 quote         : David Tolnay <dtolnay@gmail.com>
-rand          : The Rust Project Developers, The Rand Project Developers
-rand_chacha   : The CryptoCorrosion Contributors, The Rand Project Developers, The Rust Project Developers
-rand_core     : The Rand Project Developers, The Rust Project Developers
+rand          : The Rand Project Developers, The Rust Project Developers
+rand_chacha   : The Rand Project Developers, The Rust Project Developers, The CryptoCorrosion Contributors
+rand_core     : The Rust Project Developers, The Rand Project Developers
 rand_pcg      : The Rand Project Developers
 rawpointer    : bluss
 rayon         : Niko Matsakis <niko@alum.mit.edu>, Josh Stone <cuviper@gmail.com>
-rayon-core    : Josh Stone <cuviper@gmail.com>, Niko Matsakis <niko@alum.mit.edu>
+rayon-core    : Niko Matsakis <niko@alum.mit.edu>, Josh Stone <cuviper@gmail.com>
 roxido        : David B. Dahl <dahl@stat.byu.edu>
 roxido_macro  : David B. Dahl <dahl@stat.byu.edu>
 scopeguard    : bluss

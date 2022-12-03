@@ -1,15 +1,15 @@
 Package: fangs
 Title: Feature Allocation Neighborhood Greedy Search Algorithm
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: c(person(given="David B.",family="Dahl",role=c("aut","cre"),email="dahl@stat.byu.edu",comment=c(ORCID="0000-0002-8173-1547")),
     person(given="R. Jacob", family="Andros", role=c("aut"),email="androsrj@gmail.com", comment=c(ORCID="0000-0002-1289-385X")),
     person(given="Devin J.",family="Johnson",role=c("aut"),email="devin.j.johnson7@gmail.com",comment=c(ORCID="0000-0003-2619-6649")),
     person(given="Authors of depending Rust crates",role=c("ctb")))
-Description: A neighborhood-based, greedy search algorithm is performed to estimate a feature allocation by minimizing the expected loss based on posterior samples from the feature allocation distribution.
+Description: A neighborhood-based, greedy search algorithm is performed to estimate a feature allocation by minimizing the expected loss based on posterior samples from the feature allocation distribution. The method is currently under peer review but an earlier draft is available in Dahl, Johnson, and Andros (2022+) <doi:10.48550/arXiv.2207.13824>.
 License: MIT + file LICENSE | Apache License 2.0
 BugReports: https://github.com/dbdahl/fangs/issues
 Depends: R (>= 4.2.0)
 SystemRequirements: Cargo (>= 1.56) for installation from source: see INSTALL file
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.2

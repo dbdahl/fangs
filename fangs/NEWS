@@ -1,4 +1,4 @@
-0.2.1 (2022-10-13)
+0.2.2 (2022-12-03)
   * Noted authorship of vendored Rust crates in DESCRIPTION, inst/AUTHORS, and
     LICENSE.note.
   * Modified configure script based on CRAN feedback.
