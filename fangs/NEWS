@@ -1,4 +1,5 @@
 0.2.3 (202X-XX-XX)
+  *
 
 0.2.2 (2022-12-03)
   * Noted authorship of vendored Rust crates in DESCRIPTION, inst/AUTHORS, and
