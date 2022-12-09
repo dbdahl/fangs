@@ -340,6 +340,103 @@ fn fangs(
     list
 }
 
+fn flip_value(x: &mut f64) {
+    if *x == 0.0 {
+        *x = 1.0;
+    } else {
+        *x = 0.0;
+    }
+}
+
+#[roxido]
+fn fangs_doubly_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
+    let timer = EchoTimer::new();
+    let o = samples.get_list_element(0);
+    if !o.is_double() || !o.is_matrix() {
+        panic!("All elements of 'samples' must be double matrices.");
+    }
+    let n_items = o.nrow();
+    let n_samples = samples.len();
+    if n_samples < 1 {
+        panic!("Number of samples must be at least one.");
+    }
+    let a = a.as_f64();
+    let n_cores = n_cores.as_usize();
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(n_cores)
+        .build()
+        .unwrap();
+    let mut max_n_features_observed = 0;
+    let mut views = Vec::with_capacity(n_samples);
+    for i in 0..n_samples {
+        let o = samples.get_list_element(i);
+        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
+            panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
+        }
+        let view = make_view(o);
+        max_n_features_observed = max_n_features_observed.max(view.ncols());
+        views.push(view)
+    }
+    let mut state = Array2::<f64>::zeros((n_items, 0));
+    let mut state_loss = expected_loss_from_samples(state.view(), &views[..], a, &pool);
+    let zero_vector = Array1::zeros(n_items);
+    'outer: loop {
+        // Add a new column and optimize.
+        let mut worker = state.clone();
+        let mut worker_loss = state_loss;
+        worker.push_column(zero_vector.view()).unwrap();
+        println!("\nNo. of columns: {}", worker.ncols());
+        'inner: loop {
+            print!("*");
+            {
+                use std::io::Write;
+                std::io::stdout().flush().unwrap();
+            }
+            // Optimize within a given number of columns
+            let mut best_candidate_loss = f64::INFINITY;
+            let mut best_candidate_index = (0, 0);
+            for i in 0..n_items {
+                for j in 0..worker.ncols() {
+                    flip_value(&mut worker[(i, j)]); // Do flip
+                    let candidate_loss =
+                        expected_loss_from_samples(worker.view(), &views[..], a, &pool);
+                    if candidate_loss < best_candidate_loss {
+                        best_candidate_index = (i, j);
+                        best_candidate_loss = candidate_loss;
+                    }
+                    flip_value(&mut worker[(i, j)]); // Undo flip
+                }
+            }
+            if best_candidate_loss < worker_loss {
+                flip_value(&mut worker[best_candidate_index]);
+                worker_loss = best_candidate_loss;
+            } else {
+                if worker_loss < state_loss {
+                    state = worker;
+                    state_loss = worker_loss;
+                    break 'inner;
+                } else {
+                    break 'outer;
+                }
+            }
+        }
+    }
+    let (estimate, estimate_slice) = Rval::new_matrix_double(n_items, state.ncols(), pc);
+    let mut index = 0;
+    for j in 0..state.ncols() {
+        for i in 0..n_items {
+            estimate_slice[index] = state[(i, j)];
+            index += 1;
+        }
+    }
+    let list = Rval::new_list(3, pc);
+    list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
+    list.set_list_element(0, estimate);
+    list.set_list_element(1, rval!(state_loss));
+    list.set_list_element(2, rval!(timer.total_as_secs_f64()));
+    list
+}
+
 #[roxido]
 fn fangs_old(
     samples: Rval,
