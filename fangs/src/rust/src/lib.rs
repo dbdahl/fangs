@@ -210,9 +210,6 @@ fn fangs(
                 |(z, weight_matrices, loss, _, n_accepts, when, rng)| {
                     let n_features = z.ncols();
                     let total_length = n_items * n_features;
-                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                        [index / ncols, index % ncols]
-                    }
                     let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
                     flip_bit(z, weight_matrices, a, index, &views);
                     let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
@@ -340,14 +337,6 @@ fn fangs(
     list
 }
 
-fn flip_value(x: &mut f64) {
-    if *x == 0.0 {
-        *x = 1.0;
-    } else {
-        *x = 0.0;
-    }
-}
-
 #[roxido]
 fn fangs_doubly_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
     let timer = EchoTimer::new();
@@ -377,62 +366,61 @@ fn fangs_doubly_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
         max_n_features_observed = max_n_features_observed.max(view.ncols());
         views.push(view)
     }
-    let mut state = Array2::<f64>::zeros((n_items, 0));
-    let mut state_loss = expected_loss_from_samples(state.view(), &views[..], a, &pool);
-    let zero_vector = Array1::zeros(n_items);
+    let mut z = Array2::<f64>::zeros((n_items, max_n_features_observed));
+    let mut weight_matrices = make_weight_matrices(z.view(), &views[..], a, &pool);
+    let mut n_cols = 0;
+    let mut outer_loss = expected_loss_from_weight_matrices(&weight_matrices[..], &pool);
     'outer: loop {
         // Add a new column and optimize.
-        let mut worker = state.clone();
-        let mut worker_loss = state_loss;
-        worker.push_column(zero_vector.view()).unwrap();
-        println!("\nNo. of columns: {}", worker.ncols());
+        n_cols += 1;
+        if n_cols > max_n_features_observed {
+            break;
+        }
+        println!("\nNo. of columns: {}", n_cols);
+        let mut inner_loss = outer_loss;
         'inner: loop {
-            print!("*");
-            {
-                use std::io::Write;
-                std::io::stdout().flush().unwrap();
-            }
+            println!("* {}", inner_loss);
             // Optimize within a given number of columns
             let mut best_candidate_loss = f64::INFINITY;
-            let mut best_candidate_index = (0, 0);
+            let mut best_index = [0, 0];
             for i in 0..n_items {
-                for j in 0..worker.ncols() {
-                    flip_value(&mut worker[(i, j)]); // Do flip
+                for j in 0..n_cols {
+                    flip_bit(&mut z, &mut weight_matrices, a, [i, j], &views);
                     let candidate_loss =
-                        expected_loss_from_samples(worker.view(), &views[..], a, &pool);
+                        expected_loss_from_weight_matrices(&weight_matrices, &pool);
+                    flip_bit(&mut z, &mut weight_matrices, a, [i, j], &views);
                     if candidate_loss < best_candidate_loss {
-                        best_candidate_index = (i, j);
+                        best_index = [i, j];
                         best_candidate_loss = candidate_loss;
                     }
-                    flip_value(&mut worker[(i, j)]); // Undo flip
                 }
             }
-            if best_candidate_loss < worker_loss {
-                flip_value(&mut worker[best_candidate_index]);
-                worker_loss = best_candidate_loss;
+            if best_candidate_loss < inner_loss {
+                flip_bit(&mut z, &mut weight_matrices, a, best_index, &views);
+                inner_loss = best_candidate_loss;
             } else {
-                if worker_loss < state_loss {
-                    state = worker;
-                    state_loss = worker_loss;
+                if inner_loss < outer_loss {
+                    outer_loss = inner_loss;
                     break 'inner;
                 } else {
+                    n_cols -= 1;
                     break 'outer;
                 }
             }
         }
     }
-    let (estimate, estimate_slice) = Rval::new_matrix_double(n_items, state.ncols(), pc);
+    let (estimate, estimate_slice) = Rval::new_matrix_double(n_items, n_cols, pc);
     let mut index = 0;
-    for j in 0..state.ncols() {
+    for j in 0..n_cols {
         for i in 0..n_items {
-            estimate_slice[index] = state[(i, j)];
+            estimate_slice[index] = z[(i, j)];
             index += 1;
         }
     }
     let list = Rval::new_list(3, pc);
     list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
     list.set_list_element(0, estimate);
-    list.set_list_element(1, rval!(state_loss));
+    list.set_list_element(1, rval!(outer_loss));
     list.set_list_element(2, rval!(timer.total_as_secs_f64()));
     list
 }
@@ -601,9 +589,6 @@ fn fangs_old(
                 .for_each(|(z, weight_matrices, loss, _, n_accepts, when, rng)| {
                     let n_features = z.ncols();
                     let total_length = n_items * n_features;
-                    fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
-                        [index / ncols, index % ncols]
-                    }
                     let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
                     flip_bit(z, weight_matrices, a, index, &views);
                     let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
@@ -856,6 +841,10 @@ fn make_weight_matrices(
             .map(|zz| make_weight_matrix(z, *zz, a).unwrap())
             .collect()
     })
+}
+
+fn index_1d_to_2d(index: usize, ncols: usize) -> [usize; 2] {
+    [index / ncols, index % ncols]
 }
 
 #[allow(clippy::float_cmp)]
