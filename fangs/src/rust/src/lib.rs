@@ -373,9 +373,6 @@ fn fangs_doubly_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
     'outer: loop {
         // Add a new column and optimize.
         n_cols += 1;
-        if n_cols > max_n_features_observed {
-            break;
-        }
         println!("\nNo. of columns: {}", n_cols);
         let mut inner_loss = outer_loss;
         'inner: loop {
@@ -385,10 +382,14 @@ fn fangs_doubly_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
             let mut best_index = [0, 0];
             for i in 0..n_items {
                 for j in 0..n_cols {
-                    flip_bit(&mut z, &mut weight_matrices, a, [i, j], &views);
-                    let candidate_loss =
-                        expected_loss_from_weight_matrices(&weight_matrices, &pool);
-                    flip_bit(&mut z, &mut weight_matrices, a, [i, j], &views);
+                    let candidate_loss = expected_loss_from_weight_matrices_if_flip_bit(
+                        &z,
+                        &mut weight_matrices,
+                        a,
+                        [i, j],
+                        &views,
+                        &pool,
+                    );
                     if candidate_loss < best_candidate_loss {
                         best_index = [i, j];
                         best_candidate_loss = candidate_loss;
@@ -401,7 +402,11 @@ fn fangs_doubly_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
             } else {
                 if inner_loss < outer_loss {
                     outer_loss = inner_loss;
-                    break 'inner;
+                    if n_cols < max_n_features_observed {
+                        break 'inner;
+                    } else {
+                        break 'outer;
+                    }
                 } else {
                     n_cols -= 1;
                     break 'outer;
@@ -858,9 +863,8 @@ fn flip_bit(
     let old_bit = z[index];
     z[index] = if old_bit == 0.0 { 1.0 } else { 0.0 };
     let b = 2.0 - a;
-    let i0 = index[0];
-    let i1 = index[1];
-    let result = samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
+    let [i0, i1] = index;
+    samples.iter().zip(matrices.iter_mut()).for_each(|(zz, w)| {
         for i2 in 0..w.ncols() {
             let bit_in_sample = if i2 >= zz.ncols() { 0.0 } else { zz[[i0, i2]] };
             w[[i1, i2]] += if old_bit == 0.0 {
@@ -890,7 +894,63 @@ fn flip_bit(
         max_ulps = 4
     );
     */
-    result
+}
+
+fn update_w(
+    zz: &ArrayView2<f64>,
+    w: &mut Array2<f64>,
+    i0: usize,
+    i1: usize,
+    a: f64,
+    b: f64,
+    bit: f64,
+) {
+    for i2 in 0..w.ncols() {
+        let bit_in_sample = if i2 >= zz.ncols() { 0.0 } else { zz[[i0, i2]] };
+        w[[i1, i2]] += if bit == 0.0 {
+            if bit_in_sample == 0.0 {
+                a
+            } else {
+                -b
+            }
+        } else {
+            if bit_in_sample == 0.0 {
+                -a
+            } else {
+                b
+            }
+        };
+    }
+}
+
+#[allow(clippy::float_cmp)]
+fn expected_loss_from_weight_matrices_if_flip_bit(
+    z: &Array2<f64>,
+    matrices: &mut Vec<Array2<f64>>,
+    a: f64,
+    index: [usize; 2],
+    samples: &[ArrayView2<f64>],
+    pool: &ThreadPool,
+) -> f64 {
+    let old_bit = z[index];
+    let new_bit = if old_bit == 0.0 { 1.0 } else { 0.0 };
+    let b = 2.0 - a;
+    let [i0, i1] = index;
+    pool.install(|| {
+        samples
+            .par_iter()
+            .zip(matrices.par_iter_mut())
+            .fold(
+                || 0.0,
+                |acc: f64, (zz, w)| {
+                    update_w(zz, w, i0, i1, a, b, old_bit);
+                    let lss = loss(w);
+                    update_w(zz, w, i0, i1, a, b, new_bit);
+                    acc + lss
+                },
+            )
+            .reduce(|| 0.0, |a, b| a + b)
+    }) / (matrices.len() as f64)
 }
 
 #[allow(clippy::float_cmp)]
