@@ -21,11 +21,14 @@
 #' @param maxSeconds Stop the search and return the current best estimate once
 #'   the elapsed time in the sweetening phase exceeds this value.
 #' @param a A numeric scalar for the cost parameter of generalized Hamming
-#'   distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
-#'   to \eqn{2 - a}.
+#'   distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal to
+#'   \eqn{2 - a}.
 #' @param nCores The number of CPU cores to use, i.e., the number of
 #'   simultaneous calculations at any given time. A value of zero indicates to
 #'   use all cores on the system.
+#' @param algorithm A string indicating the algorithm to use; equal to
+#'   \dQuote{default}, \dQuote{draws}, \dQuote{neighbors}, or
+#'   \dQuote{double-greedy}.
 #' @param quiet If \code{TRUE}, intermediate status reporting is suppressed.
 #'
 #' @return A list with the following elements:
@@ -49,19 +52,20 @@
 #' data(samplesFA)
 #' fangs(samplesFA, nIterations=100, nCores=2)
 #'
-fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, maxSeconds=60, a=1.0, nCores=0, quiet=FALSE) {
+fangs <- function(samples, nInit=16, nSweet=4, nIterations=1000, maxSeconds=60, a=1.0, nCores=0, algorithm="default", quiet=FALSE) {
   if ( a <= 0.0 || a >= 2.0 ) stop("'a' must be in (0,2).")
-  samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
-  result <- if ( Sys.getenv("FANGS_USE_DRAWS") == "TRUE" ) {
-    warning("Using the 'draws' method.")
-    .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
-  } else {
-    if ( Sys.getenv("FANGS_USE_DOUBLY_GREEDY") == "TRUE" ) {
-      warning("Using the 'doubly greedy' method.")
-      .Call(.fangs_doubly_greedy, samples, a, nCores)
-    } else {
-      .Call(.fangs, samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, quiet)
-    }
+  if ( ! ( algorithm %in% c("default", "draws", "neighbors", "double-greedy") ) ) {
+    stop("Unrecognized algorithm.")
   }
+  samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
+  result <- if ( algorithm == "draws" ) {
+    .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
+  } else if ( algorithm == "double-greedy" ) {
+    .Call(.fangs_double_greedy, samples, a, nCores)
+  } else if ( algorithm == "neighbors" ) {
+    .Call(.fangs, samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, TRUE, quiet)
+  } else if ( algorithm == "default" ) {
+    .Call(.fangs, samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, FALSE, quiet)
+  } else stop("Unrecognized algorithm.")
   c(result, nInit=nInit, nSweet=nSweet, a=a)
 }

@@ -12,6 +12,7 @@ fangs(
   maxSeconds = 60,
   a = 1,
   nCores = 0,
+  algorithm = "default",
   quiet = FALSE
 )
 }
@@ -39,12 +40,16 @@ number may be less due to the \code{maxSeconds} argument.}
 the elapsed time in the sweetening phase exceeds this value.}
 
 \item{a}{A numeric scalar for the cost parameter of generalized Hamming
-distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
-to \eqn{2 - a}.}
+distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal to
+\eqn{2 - a}.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to
 use all cores on the system.}
+
+\item{algorithm}{A string indicating the algorithm to use; equal to
+\dQuote{default}, \dQuote{draws}, \dQuote{neighbors}, or
+\dQuote{double-greedy}.}
 
 \item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.}
 }

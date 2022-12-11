@@ -14,8 +14,8 @@ and features in the columns.}
 and features in the columns.}
 
 \item{a}{A numeric scalar for the cost parameter of generalized Hamming
-distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
-to \eqn{2 - a}.}
+distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal to
+\eqn{2 - a}.}
 
 \item{augmented}{If \code{TRUE}, the column permutation (used by FARO loss to
 compare the feature allocations) is returned for each matrix.}

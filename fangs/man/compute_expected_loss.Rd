@@ -16,8 +16,8 @@ in the columns.}
 the rows and features in the columns.}
 
 \item{a}{A numeric scalar for the cost parameter of generalized Hamming
-distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal
-to \eqn{2 - a}.}
+distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal to
+\eqn{2 - a}.}
 
 \item{nCores}{The number of CPU cores to use, i.e., the number of
 simultaneous calculations at any given time. A value of zero indicates to
