@@ -1,4 +1,4 @@
-0.2.4 (2022-12-16)
+0.2.5 (2022-12-16)
   * Added algorithm argument to fangs function, providing new search
     algorithms.
 
