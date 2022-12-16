@@ -40,7 +40,7 @@ fn fangs_old(samples: Rval, nIterations: Rval, nInit: Rval, nSweet: Rval, a: Rva
 }
 
 #[roxido]
-fn fangs_double_greedy(samples: Rval, a: Rval, nCores: Rval) -> Rval {
+fn fangs_double_greedy(samples: Rval, maxSeconds: Rval, a: Rval, nCores: Rval) -> Rval {
     Rval::nil()
 }
 
@@ -90,7 +90,7 @@ extern "C" fn R_init_fangs_rust(info: *mut rbindings::DllInfo) {
     call_routines.push(rbindings::R_CallMethodDef {
         name: _names.last().unwrap().as_ptr(),
         fun: unsafe { std::mem::transmute(crate::fangs_double_greedy as *const u8) },
-        numArgs: 3,
+        numArgs: 4,
     });
     _names.push(std::ffi::CString::new(".fangs").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {

@@ -368,7 +368,7 @@ fn fangs(
 }
 
 #[roxido]
-fn fangs_double_greedy(samples: Rval, a: Rval, n_cores: Rval, max_seconds: Rval) -> Rval {
+fn fangs_double_greedy(samples: Rval, max_seconds: Rval, a: Rval, n_cores: Rval) -> Rval {
     let timer = EchoTimer::new();
     let o = samples.get_list_element(0);
     if !o.is_double() || !o.is_matrix() {
@@ -379,9 +379,9 @@ fn fangs_double_greedy(samples: Rval, a: Rval, n_cores: Rval, max_seconds: Rval)
     if n_samples < 1 {
         panic!("Number of samples must be at least one.");
     }
+    let max_seconds = max_seconds.as_f64();
     let a = a.as_f64();
     let n_cores = n_cores.as_usize();
-    let max_seconds = max_seconds.as_f64();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()

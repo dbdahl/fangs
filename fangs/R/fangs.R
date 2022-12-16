@@ -66,7 +66,7 @@ fangs <- function(samples, nInit=16, nSweet=4, nIterations=0, maxSeconds=60, a=1
   result <- if ( algorithm == "draws" ) {
     .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
   } else if ( algorithm == "double-greedy" ) {
-    .Call(.fangs_double_greedy, samples, a, nCores)
+    .Call(.fangs_double_greedy, samples, maxSeconds, a, nCores)
   } else if ( algorithm == "neighbors" ) {
     .Call(.fangs, samples, nIterations, maxSeconds, nInit, nSweet, a, nCores, TRUE, quiet)
   } else if ( algorithm == "default" ) {
