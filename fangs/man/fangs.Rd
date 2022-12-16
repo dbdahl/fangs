@@ -8,7 +8,7 @@ fangs(
   samples,
   nInit = 16,
   nSweet = 4,
-  nIterations = 1000,
+  nIterations = 0,
   maxSeconds = 60,
   a = 1,
   nCores = 0,
@@ -34,10 +34,12 @@ chosen (by lowest expected loss) to be optimized in the sweetening phase.}
 
 \item{nIterations}{The number of iterations (i.e., proposed changes) to
 consider per initial estimate in the sweetening phase, although the actual
-number may be less due to the \code{maxSeconds} argument.}
+number may be less due to the \code{maxSeconds} argument.  The default
+value is \code{0}, which sets the number of iterations to the number of
+items times the number of columns.}
 
 \item{maxSeconds}{Stop the search and return the current best estimate once
-the elapsed time in the sweetening phase exceeds this value.}
+the elapsed time exceeds this value.}
 
 \item{a}{A numeric scalar for the cost parameter of generalized Hamming
 distance used in FARO loss.  The other cost parameter, \eqn{b}, is equal to
@@ -49,7 +51,10 @@ use all cores on the system.}
 
 \item{algorithm}{A string indicating the algorithm to use; equal to
 \dQuote{default}, \dQuote{draws}, \dQuote{neighbors}, or
-\dQuote{double-greedy}.}
+\dQuote{double-greedy}.  The \dQuote{default} algorithm is recommended,
+although the \dQuote{neighbors} algorithm may provide an improvement at the
+cost of time.  The \dQuote{double-greedy} algorithm is often prohibitively
+slow.}
 
 \item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.}
 }

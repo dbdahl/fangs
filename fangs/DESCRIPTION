@@ -1,6 +1,6 @@
 Package: fangs
 Title: Feature Allocation Neighborhood Greedy Search Algorithm
-Version: 0.2.3
+Version: 0.2.4
 Authors@R: c(person(given="David B.",family="Dahl",role=c("aut","cre"),email="dahl@stat.byu.edu",comment=c(ORCID="0000-0002-8173-1547")),
     person(given="R. Jacob", family="Andros", role=c("aut"),email="androsrj@gmail.com", comment=c(ORCID="0000-0002-1289-385X")),
     person(given="Devin J.",family="Johnson",role=c("aut"),email="devin.j.johnson7@gmail.com",comment=c(ORCID="0000-0003-2619-6649")),
@@ -12,4 +12,4 @@ Depends: R (>= 4.2.0)
 SystemRequirements: Cargo (>= 1.56) for installation from source: see INSTALL file
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.2
+RoxygenNote: 7.2.3

@@ -217,11 +217,21 @@ fn fangs(
                         n_items,
                         a,
                         &pool,
+                        max_seconds,
                         &timer,
                     );
                 })
         });
     } else {
+        let n_iterations = if n_iterations == 0 {
+            sweets
+                .iter()
+                .map(|x| x.0.nrows() * x.0.ncols())
+                .max()
+                .unwrap_or(0)
+        } else {
+            n_iterations
+        };
         while iteration_counter < n_iterations && timer.total_as_secs_f64() < max_seconds {
             iteration_counter += 1;
             pool.install(|| {
@@ -358,7 +368,7 @@ fn fangs(
 }
 
 #[roxido]
-fn fangs_double_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
+fn fangs_double_greedy(samples: Rval, a: Rval, n_cores: Rval, max_seconds: Rval) -> Rval {
     let timer = EchoTimer::new();
     let o = samples.get_list_element(0);
     if !o.is_double() || !o.is_matrix() {
@@ -371,6 +381,7 @@ fn fangs_double_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
     }
     let a = a.as_f64();
     let n_cores = n_cores.as_usize();
+    let max_seconds = max_seconds.as_f64();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -395,6 +406,7 @@ fn fangs_double_greedy(samples: Rval, a: Rval, n_cores: Rval) -> Rval {
         n_items,
         a,
         &pool,
+        max_seconds,
         &timer,
     );
     let (estimate, estimate_slice) = Rval::new_matrix_double(n_items, z.ncols(), pc);
@@ -420,12 +432,16 @@ fn neighborhood_sweeten(
     n_items: usize,
     a: f64,
     pool: &ThreadPool,
+    max_seconds: f64,
     timer: &EchoTimer,
 ) -> f64 {
     let mut outer_loss = expected_loss_from_weight_matrices(&weight_matrices[..], pool);
     loop {
         if timer.echo() {
             println!("Current loss: {}", outer_loss);
+        }
+        if timer.total_as_secs_f64() >= max_seconds {
+            break;
         }
         // Optimize within a given number of columns
         let mut best_candidate_loss = f64::INFINITY;
