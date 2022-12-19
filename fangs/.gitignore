@@ -12,3 +12,4 @@
 /src/rust/**/target
 /src/rust/.idea
 /inst/cargo.log
+/authors-scratch.txt

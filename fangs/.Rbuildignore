@@ -1,4 +1,5 @@
 justfile
+authors-scratch.txt
 ^.*[.]tar[.]gz
 ^src/librust.a
 ^src/rust/(.*/)*target
