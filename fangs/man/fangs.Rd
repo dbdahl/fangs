@@ -54,7 +54,7 @@ use all cores on the system.}
 although the \dQuote{deterministic} algorithm may provide an improvement at the
 cost of time.}
 
-\item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.}
+\item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.  Otherwise details are provided, especially when \code{algorithm="stochastic"}.}
 }
 \value{
 A list with the following elements:

@@ -29,10 +29,13 @@
 #'   simultaneous calculations at any given time. A value of zero indicates to
 #'   use all cores on the system.
 #' @param algorithm A string indicating the algorithm to use; equal to
-#'   \dQuote{stochastic}, \dQuote{deterministic}, or \dQuote{draws}.  The \dQuote{stochastic} algorithm is recommended,
-#'   although the \dQuote{deterministic} algorithm may provide an improvement at the
-#'   cost of time.
+#'   \dQuote{stochastic}, \dQuote{deterministic}, or \dQuote{draws}.  The
+#'   \dQuote{stochastic} algorithm is recommended, although the
+#'   \dQuote{deterministic} algorithm may provide an improvement at the cost of
+#'   time.
 #' @param quiet If \code{TRUE}, intermediate status reporting is suppressed.
+#'   Otherwise details are provided, especially when
+#'   \code{algorithm="stochastic"}.
 #'
 #' @return A list with the following elements:
 #' \itemize{
