@@ -12,7 +12,7 @@ fangs(
   maxSeconds = 60,
   a = 1,
   nCores = 0,
-  algorithm = "default",
+  algorithm = "stochastic",
   quiet = FALSE
 )
 }
@@ -50,11 +50,9 @@ simultaneous calculations at any given time. A value of zero indicates to
 use all cores on the system.}
 
 \item{algorithm}{A string indicating the algorithm to use; equal to
-\dQuote{default}, \dQuote{draws}, \dQuote{neighbors}, or
-\dQuote{double-greedy}.  The \dQuote{default} algorithm is recommended,
-although the \dQuote{neighbors} algorithm may provide an improvement at the
-cost of time.  The \dQuote{double-greedy} algorithm is often prohibitively
-slow.}
+\dQuote{stochastic}, \dQuote{deterministic}, or \dQuote{draws}.  The \dQuote{stochastic} algorithm is recommended,
+although the \dQuote{deterministic} algorithm may provide an improvement at the
+cost of time.}
 
 \item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.}
 }

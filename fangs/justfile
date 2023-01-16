@@ -1,8 +1,0 @@
-build:
-  rm -f *.tar.gz
-  R CMD build .
-  R CMD INSTALL *.tar.gz
-
-prebuild:
-  Rscript -e 'cargo::prebuild(what="all")'
-  
