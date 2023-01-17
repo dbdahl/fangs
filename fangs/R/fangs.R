@@ -16,7 +16,7 @@
 #' @param nSweet The number of feature allocations among \code{nInit} which are
 #'   chosen (by lowest expected loss) to be optimized in the sweetening phase.
 #' @param nIterations The number of iterations (i.e., proposed changes) to
-#'   consider per initial estimate in the sweetening phase, although the actual
+#'   consider per initial estimate in the stochastic sweetening phase, although the actual
 #'   number may be less due to the \code{maxSeconds} argument.  The default
 #'   value is \code{0}, which sets the number of iterations to the number of
 #'   items times the number of columns.
@@ -65,7 +65,7 @@ fangs <- function(samples, nInit=16, nSweet=4, nIterations=0, maxSeconds=60, a=1
   }
   samples <- lapply(samples, function(x) {storage.mode(x) <- "double"; x})
   result <- if ( algorithm == "draws" ) {
-    .Call(.fangs_old, samples, nIterations, nInit, nSweet, a, nCores, quiet)
+    .Call(.draws, samples, a, nCores, quiet)
   } else if ( algorithm == "double-greedy" ) {
     .Call(.fangs_double_greedy, samples, maxSeconds, a, nCores)
   } else if ( algorithm == "deterministic" ) {

@@ -33,7 +33,7 @@ and the initial feature allocation is obtained by thresholding according to
 chosen (by lowest expected loss) to be optimized in the sweetening phase.}
 
 \item{nIterations}{The number of iterations (i.e., proposed changes) to
-consider per initial estimate in the sweetening phase, although the actual
+consider per initial estimate in the stochastic sweetening phase, although the actual
 number may be less due to the \code{maxSeconds} argument.  The default
 value is \code{0}, which sets the number of iterations to the number of
 items times the number of columns.}
@@ -50,11 +50,14 @@ simultaneous calculations at any given time. A value of zero indicates to
 use all cores on the system.}
 
 \item{algorithm}{A string indicating the algorithm to use; equal to
-\dQuote{stochastic}, \dQuote{deterministic}, or \dQuote{draws}.  The \dQuote{stochastic} algorithm is recommended,
-although the \dQuote{deterministic} algorithm may provide an improvement at the
-cost of time.}
+\dQuote{stochastic}, \dQuote{deterministic}, or \dQuote{draws}.  The
+\dQuote{stochastic} algorithm is recommended, although the
+\dQuote{deterministic} algorithm may provide an improvement at the cost of
+time.}
 
-\item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.  Otherwise details are provided, especially when \code{algorithm="stochastic"}.}
+\item{quiet}{If \code{TRUE}, intermediate status reporting is suppressed.
+Otherwise details are provided, especially when
+\code{algorithm="stochastic"}.}
 }
 \value{
 A list with the following elements:

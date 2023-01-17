@@ -35,7 +35,7 @@ fn compute_loss_permutations(Z1: Rval, Z2: Rval, a: Rval) -> Rval {
 }
 
 #[roxido]
-fn fangs_old(samples: Rval, nIterations: Rval, nInit: Rval, nSweet: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
+fn draws(samples: Rval, a: Rval, nCores: Rval, quiet: Rval) -> Rval {
     Rval::nil()
 }
 
@@ -80,11 +80,11 @@ extern "C" fn R_init_fangs_rust(info: *mut rbindings::DllInfo) {
         fun: unsafe { std::mem::transmute(crate::compute_loss_permutations as *const u8) },
         numArgs: 3,
     });
-    _names.push(std::ffi::CString::new(".fangs_old").unwrap());
+    _names.push(std::ffi::CString::new(".draws").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {
         name: _names.last().unwrap().as_ptr(),
-        fun: unsafe { std::mem::transmute(crate::fangs_old as *const u8) },
-        numArgs: 7,
+        fun: unsafe { std::mem::transmute(crate::draws as *const u8) },
+        numArgs: 4,
     });
     _names.push(std::ffi::CString::new(".fangs_double_greedy").unwrap());
     call_routines.push(rbindings::R_CallMethodDef {

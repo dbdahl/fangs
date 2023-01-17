@@ -1,3 +1,6 @@
+0.2.10 (2023-01-19)
+  * Tidying up interface.
+
 0.2.8 (2022-12-19)
   * Added algorithm argument to fangs function, providing new search
     algorithms.

@@ -473,36 +473,22 @@ fn neighborhood_sweeten(
 }
 
 #[roxido]
-fn fangs_old(
-    samples: Rval,
-    n_iterations: Rval,
-    n_candidates: Rval,
-    n_bests: Rval,
-    a: Rval,
-    n_cores: Rval,
-    quiet: Rval,
-) -> Rval {
+fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
     let mut timer = EchoTimer::new();
     let n_samples = samples.len();
     if n_samples < 1 {
         panic!("Number of samples must be at least one.");
     }
     let a = a.as_f64();
-    let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
-    let n_bests = n_bests.as_usize().max(1).min(n_candidates);
-    let n_iterations = n_iterations.as_usize();
+    //let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
+    //let n_bests = n_bests.as_usize().max(1).min(n_candidates);
+    //let n_iterations = n_iterations.as_usize();
     let n_cores = n_cores.as_usize();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
         .unwrap();
     let quiet = quiet.as_bool();
-    let status_file = match std::env::var("FANGS_STATUS") {
-        Ok(x) => Path::new(x.as_str()).to_owned(),
-        _ => std::env::current_dir()
-            .unwrap_or_default()
-            .join("FANGS_STATUS"),
-    };
     let o = samples.get_list_element(0);
     if !o.is_double() || !o.is_matrix() {
         panic!("All elements of 'samples' must be double matrices.");
@@ -543,7 +529,7 @@ fn fangs_old(
         r::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> =
-        rand::seq::index::sample(&mut rng, n_samples, n_candidates)
+        rand::seq::index::sample(&mut rng, n_samples, n_samples)
             .into_iter()
             .map(|index| {
                 let mut seed = [0_u8; 16];
@@ -591,18 +577,8 @@ fn fangs_old(
         let loss = expected_loss_from_samples(z.view(), &views, a, &pool);
         candidates.push((z, loss, rng));
     }
-    if timer.echo() {
-        interrupted |= rprint!(
-            "{}",
-            timer
-                .stamp("Computed expected loss for all candidates.\n")
-                .unwrap()
-                .as_str()
-        );
-        r::flush_console();
-    }
     candidates.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
-    candidates.truncate(n_bests);
+    candidates.truncate(1);
     let mut bests: Vec<_> = pool.install(|| {
         candidates
             .into_par_iter()
@@ -615,76 +591,6 @@ fn fangs_old(
             })
             .collect()
     });
-    if timer.echo() {
-        interrupted |= rprint!(
-            "{}",
-            timer
-                .stamp("Computed weight matrices for bests.\n")
-                .unwrap()
-                .as_str()
-        );
-        r::flush_console();
-    }
-    let seconds_in_initialization = timer.total_as_secs_f64();
-    let mut period_timer = PeriodicTimer::new(1.0);
-    let mut iteration_counter = 0;
-    while iteration_counter < n_iterations {
-        iteration_counter += 1;
-        pool.install(|| {
-            bests
-                .par_iter_mut()
-                .for_each(|(z, weight_matrices, loss, _, n_accepts, when, rng)| {
-                    let n_features = z.ncols();
-                    let total_length = n_items * n_features;
-                    let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
-                    flip_bit(z, weight_matrices, a, index, &views);
-                    let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
-                    if new_loss < *loss {
-                        *n_accepts += 1;
-                        *when = iteration_counter;
-                        *loss = new_loss;
-                    } else {
-                        flip_bit(z, weight_matrices, a, index, &views);
-                    }
-                });
-        });
-        if !quiet || status_file.exists() {
-            period_timer.maybe(iteration_counter == n_iterations, || {
-                if quiet && status_file.exists() {
-                    interrupted |= rprint!(
-                        "{}",
-                        format!(
-                            "*** {} exists, so forcing status display.\n",
-                            status_file.display()
-                        )
-                        .as_str()
-                    );
-                    r::flush_console();
-                }
-                bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
-                let best = bests.first().unwrap();
-                interrupted |= rprint!(
-                    "{}",
-                    format!(
-                        "\rIter. {}: Since iter. {}, E(loss) is {:.4} from #{} with {} accept{}.",
-                        iteration_counter,
-                        best.5,
-                        best.2,
-                        best.3 + 1,
-                        best.4,
-                        if best.4 == 1 { "" } else { "s" }
-                    )
-                    .as_str()
-                );
-                r::flush_console();
-            });
-        }
-        if interrupted || r::check_user_interrupt() {
-            rprint!("\nCaught user interrupt, so breaking out early.");
-            r::flush_console();
-            break;
-        }
-    }
     if !quiet {
         rprint!("\n");
         r::flush_console();
@@ -729,24 +635,11 @@ fn fangs_old(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = Rval::new_list(7, pc);
-    list.names_gets(rval!([
-        "estimate",
-        "loss",
-        "iteration",
-        "nIterations",
-        "secondsInitialization",
-        "secondsSweetening",
-        "whichBest",
-    ]));
+    let list = Rval::new_list(3, pc);
+    list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
     list.set_list_element(0, estimate);
     list.set_list_element(1, rval!(best_loss));
-    list.set_list_element(2, rval!(best_iteration as i32));
-    list.set_list_element(3, Rval::try_new(iteration_counter, pc).unwrap());
-    list.set_list_element(4, rval!(seconds_in_initialization));
-    list.set_list_element(6, rval!((candidate_number + 1) as i32));
-    let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
-    list.set_list_element(5, rval!(seconds_in_sweetening));
+    list.set_list_element(2, rval!(timer.total_as_secs_f64()));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         r::flush_console();
