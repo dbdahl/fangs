@@ -1,29 +1,37 @@
-### Binary installation
+## Installation
 
-On most platforms, you can install the package using:
+### Installation from CRAN
+
+The latest release is available on [CRAN](https://cran.r-project.org/):
 
 ```r
-options(repos=c(dbdahl='https://dbdahl.r-universe.dev', CRAN='https://cloud.r-project.org'))
 install.packages('fangs')
-````
+```
 
-### Source installation
+### Installation from Source
 
-If binary installation fails, you can install from source. First install the development tools.
-On MacOS, install Xcode command line tools by running `sudo xcode-select --install`.
-On Windows, install [Rtools42](https://cran.r-project.org/bin/windows/Rtools/rtools42/rtools.html). 
+You can also install the latest development version from source.
 
-Then install the `remotes` and `cargo` packages and then install Cargo (the Rust package manager):
+First install the development tools. On MacOS, install Xcode command line tools
+by running `sudo xcode-select --install`. On Windows, install
+[Rtools](https://cran.r-project.org/bin/windows/Rtools/).
+
+Then install the `remotes` and `cargo` packages:
 
 ```r
 install.packages("remotes")
 remotes::install_github("dbdahl/cargo-framework/cargo")
-cargo::install(force=TRUE)
+```
+
+Now install the Rust toolchain:
+
+```
+cargo::install(force = TRUE)
 ```
 
 Finally, install the package itself:
 
-````
+```
 remotes::install_github("dbdahl/fangs/fangs")
 ```
 
