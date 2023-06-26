@@ -113,20 +113,18 @@ fn fangs(
                     .map(|zz| {
                         let weight_matrix = make_weight_matrix(view, *zz, a).unwrap();
                         let solution = lapjv::lapjv(&weight_matrix).unwrap();
-                        let aligned =
-                            Array2::from_shape_fn((n_items, max_n_features_observed), |(i, j)| {
-                                if j >= solution.0.len() {
+                        Array2::from_shape_fn((n_items, max_n_features_observed), |(i, j)| {
+                            if j >= solution.0.len() {
+                                0.0
+                            } else {
+                                let jj = solution.0[j];
+                                if jj >= zz.ncols() {
                                     0.0
                                 } else {
-                                    let jj = solution.0[j];
-                                    if jj >= zz.ncols() {
-                                        0.0
-                                    } else {
-                                        zz[[i, jj]]
-                                    }
+                                    zz[[i, jj]]
                                 }
-                            });
-                        aligned
+                            }
+                        })
                     })
                     .reduce(
                         || Array2::zeros((n_items, max_n_features_observed)),
@@ -136,12 +134,14 @@ fn fangs(
                 let initial_estimate_with_zero_columns =
                     elementwise_means.mapv(|x| if x < threshold { 0.0 } else { 1.0 });
                 let mut which: Vec<usize> = Vec::new();
-                let mut column_counter = 0;
-                for column in initial_estimate_with_zero_columns.columns() {
+                for (column_counter, column) in initial_estimate_with_zero_columns
+                    .columns()
+                    .into_iter()
+                    .enumerate()
+                {
                     if column.iter().any(|&x| x > 0.0) {
                         which.push(column_counter)
                     }
-                    column_counter += 1;
                 }
                 let initial_estimate = if which.is_empty() {
                     Array2::zeros((n_items, 1))
@@ -244,7 +244,7 @@ fn fangs(
                         let total_length = n_items * n_features;
                         let index = index_1d_to_2d(rng.gen_range(0..total_length), n_features);
                         flip_bit(z, weight_matrices, a, index, &views);
-                        let new_loss = expected_loss_from_weight_matrices(&weight_matrices, &pool);
+                        let new_loss = expected_loss_from_weight_matrices(weight_matrices, &pool);
                         if new_loss < *loss {
                             *n_accepts += 1;
                             *when = iteration_counter;
@@ -438,7 +438,7 @@ fn neighborhood_sweeten(
     max_seconds: f64,
     timer: &EchoTimer,
 ) -> f64 {
-    let mut outer_loss = expected_loss_from_weight_matrices(&weight_matrices[..], pool);
+    let mut outer_loss = expected_loss_from_weight_matrices(weight_matrices, pool);
     loop {
         if timer.echo() {
             println!("Current loss: {}", outer_loss);
@@ -452,12 +452,12 @@ fn neighborhood_sweeten(
         for i in 0..n_items {
             for j in 0..z.ncols() {
                 let candidate_loss = expected_loss_from_weight_matrices_if_flip_bit(
-                    &z,
+                    z,
                     weight_matrices,
                     a,
                     [i, j],
-                    &views,
-                    &pool,
+                    views,
+                    pool,
                 );
                 if candidate_loss < best_candidate_loss {
                     best_index = [i, j];
@@ -466,7 +466,7 @@ fn neighborhood_sweeten(
             }
         }
         if best_candidate_loss < outer_loss {
-            flip_bit(z, weight_matrices, a, best_index, &views);
+            flip_bit(z, weight_matrices, a, best_index, views);
             outer_loss = best_candidate_loss;
         } else {
             break;
@@ -695,13 +695,12 @@ fn compute_loss_permutations(z1: Rval, z2: Rval, a: Rval) -> Rval {
             .permutations(k)
             .map(|permutation| {
                 let mut loss = 0.0;
-                for i in 0..k {
+                for (i, &j) in permutation.iter().enumerate().take(k) {
                     let c1 = if i >= v1.ncols() {
                         zero_view
                     } else {
                         v1.column(i)
                     };
-                    let j = permutation[i];
                     let c2 = if j >= v2.ncols() {
                         zero_view
                     } else {
@@ -816,12 +815,10 @@ fn flip_bit(
                 } else {
                     -b
                 }
+            } else if bit_in_sample == 0.0 {
+                -a
             } else {
-                if bit_in_sample == 0.0 {
-                    -a
-                } else {
-                    b
-                }
+                b
             };
         }
     });
@@ -856,12 +853,10 @@ fn update_w(
             } else {
                 -b
             }
+        } else if bit_in_sample == 0.0 {
+            -a
         } else {
-            if bit_in_sample == 0.0 {
-                -a
-            } else {
-                b
-            }
+            b
         };
     }
 }
