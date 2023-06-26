@@ -1,4 +1,7 @@
-mod registration;
+mod registration {
+    include!(concat!(env!("OUT_DIR"), "/registration.rs"));
+}
+
 mod timers;
 
 use ndarray::prelude::*;
@@ -30,7 +33,7 @@ fn fangs(
     let mut timer = EchoTimer::new();
     let n_samples = samples.len();
     if n_samples < 1 {
-        panic!("Number of samples must be at least one.");
+        stop!("Number of samples must be at least one.");
     }
     let a = a.as_f64();
     let threshold = a / 2.0;
@@ -51,13 +54,13 @@ fn fangs(
             .unwrap_or_default()
             .join("FANGS_STATUS"),
     };
-    let o = samples.get_list_element(0);
+    let o = samples.get_list_element(0).unwrap();
     if !o.is_double() || !o.is_matrix() {
-        panic!("All elements of 'samples' must be double matrices.");
+        stop!("All elements of 'samples' must be double matrices.");
     }
-    let n_items = o.nrow();
+    let n_items = o.nrow().unwrap();
     let mut max_n_features_observed = 0;
-    let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
+    let mut rng = Pcg64Mcg::from_seed(R::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
         interrupted |= rprint!(
@@ -73,13 +76,13 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
-        let o = samples.get_list_element(i);
-        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
-            panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
+        let o = samples.get_list_element(i).unwrap();
+        if !o.is_double() || !o.is_matrix() || o.nrow().unwrap() != n_items {
+            stop!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
         max_n_features_observed = max_n_features_observed.max(view.ncols());
@@ -90,7 +93,7 @@ fn fangs(
             "{}",
             timer.stamp("Made data structures.\n").unwrap().as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let baselines_with_rngs: Vec<_> = rand::seq::index::sample(&mut rng, n_samples, n_baselines)
         .into_iter()
@@ -158,12 +161,12 @@ fn fangs(
             "{}",
             timer.stamp("Made initial estimates.\n").unwrap().as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let mut initials = Vec::with_capacity(initials_with_rngs.len());
     for (z, rng) in initials_with_rngs {
-        if interrupted || r::check_user_interrupt() {
-            panic!("Caught user interrupt before main loop, so aborting.");
+        if interrupted || R::check_user_interrupt() {
+            stop!("Caught user interrupt before main loop, so aborting.");
         }
         let weight_matrices = make_weight_matrices(z.view(), &views, a, &pool);
         let loss = expected_loss_from_weight_matrices(&weight_matrices[..], &pool);
@@ -177,7 +180,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     initials.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
     initials.truncate(n_sweet);
@@ -200,7 +203,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let seconds_in_initialization = timer.total_as_secs_f64();
     let mut period_timer = PeriodicTimer::new(1.0);
@@ -263,7 +266,7 @@ fn fangs(
                             )
                             .as_str()
                         );
-                        r::flush_console();
+                        R::flush_console();
                     }
                     sweets.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
                     let best = sweets.first().unwrap();
@@ -280,19 +283,19 @@ fn fangs(
                     )
                         .as_str()
                     );
-                    r::flush_console();
+                    R::flush_console();
                 });
             }
-            if interrupted || r::check_user_interrupt() {
+            if interrupted || R::check_user_interrupt() {
                 rprint!("\nCaught user interrupt, so breaking out early.");
-                r::flush_console();
+                R::flush_console();
                 break;
             }
         }
     }
     if !quiet {
         rprint!("\n");
-        r::flush_console();
+        R::flush_console();
     }
     let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
     if timer.echo() {
@@ -303,7 +306,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     sweets.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
     let (best_z, best_loss, _, sweeten_number, n_accepts, best_iteration, _) =
@@ -321,7 +324,7 @@ fn fangs(
             )
             .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let columns_to_keep: Vec<usize> = best_z
         .axis_iter(Axis(1))
@@ -342,7 +345,7 @@ fn fangs(
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
     let list = Rval::new_list(8, pc);
-    list.names_gets(rval!([
+    let _ = list.names_gets(rval!([
         "estimate",
         "expectedLoss",
         "iteration",
@@ -352,17 +355,17 @@ fn fangs(
         "secondsTotal",
         "whichSweet",
     ]));
-    list.set_list_element(0, estimate);
-    list.set_list_element(1, rval!(best_loss));
-    list.set_list_element(2, rval!(best_iteration as i32));
-    list.set_list_element(3, rval!((iteration_counter + 1) as i32));
-    list.set_list_element(4, rval!(seconds_in_initialization));
-    list.set_list_element(5, rval!(seconds_in_sweetening));
-    list.set_list_element(7, rval!((sweeten_number + 1) as i32));
-    list.set_list_element(6, rval!(timer.total_as_secs_f64()));
+    let _ = list.set_list_element(0, estimate);
+    let _ = list.set_list_element(1, rval!(best_loss));
+    let _ = list.set_list_element(2, rval!(best_iteration as i32));
+    let _ = list.set_list_element(3, rval!((iteration_counter + 1) as i32));
+    let _ = list.set_list_element(4, rval!(seconds_in_initialization));
+    let _ = list.set_list_element(5, rval!(seconds_in_sweetening));
+    let _ = list.set_list_element(7, rval!((sweeten_number + 1) as i32));
+    let _ = list.set_list_element(6, rval!(timer.total_as_secs_f64()));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
-        r::flush_console();
+        R::flush_console();
     }
     list
 }
@@ -370,14 +373,14 @@ fn fangs(
 #[roxido]
 fn fangs_double_greedy(samples: Rval, max_seconds: Rval, a: Rval, n_cores: Rval) -> Rval {
     let timer = EchoTimer::new();
-    let o = samples.get_list_element(0);
+    let o = samples.get_list_element(0).unwrap();
     if !o.is_double() || !o.is_matrix() {
-        panic!("All elements of 'samples' must be double matrices.");
+        stop!("All elements of 'samples' must be double matrices.");
     }
-    let n_items = o.nrow();
+    let n_items = o.nrow().unwrap();
     let n_samples = samples.len();
     if n_samples < 1 {
-        panic!("Number of samples must be at least one.");
+        stop!("Number of samples must be at least one.");
     }
     let max_seconds = max_seconds.as_f64();
     let a = a.as_f64();
@@ -389,9 +392,9 @@ fn fangs_double_greedy(samples: Rval, max_seconds: Rval, a: Rval, n_cores: Rval)
     let mut max_n_features_observed = 0;
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
-        let o = samples.get_list_element(i);
-        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
-            panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
+        let o = samples.get_list_element(i).unwrap();
+        if !o.is_double() || !o.is_matrix() || o.nrow().unwrap() != n_items {
+            stop!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
         max_n_features_observed = max_n_features_observed.max(view.ncols());
@@ -418,10 +421,10 @@ fn fangs_double_greedy(samples: Rval, max_seconds: Rval, a: Rval, n_cores: Rval)
         }
     }
     let list = Rval::new_list(3, pc);
-    list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
-    list.set_list_element(0, estimate);
-    list.set_list_element(1, rval!(loss));
-    list.set_list_element(2, rval!(timer.total_as_secs_f64()));
+    let _ = list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
+    let _ = list.set_list_element(0, estimate);
+    let _ = list.set_list_element(1, rval!(loss));
+    let _ = list.set_list_element(2, rval!(timer.total_as_secs_f64()));
     list
 }
 
@@ -477,7 +480,7 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
     let mut timer = EchoTimer::new();
     let n_samples = samples.len();
     if n_samples < 1 {
-        panic!("Number of samples must be at least one.");
+        stop!("Number of samples must be at least one.");
     }
     let a = a.as_f64();
     //let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
@@ -489,12 +492,12 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
         .build()
         .unwrap();
     let quiet = quiet.as_bool();
-    let o = samples.get_list_element(0);
+    let o = samples.get_list_element(0).unwrap();
     if !o.is_double() || !o.is_matrix() {
-        panic!("All elements of 'samples' must be double matrices.");
+        stop!("All elements of 'samples' must be double matrices.");
     }
-    let n_items = o.nrow();
-    let mut rng = Pcg64Mcg::from_seed(r::random_bytes::<16>());
+    let n_items = o.nrow().unwrap();
+    let mut rng = Pcg64Mcg::from_seed(R::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
         interrupted |= rprint!(
@@ -510,13 +513,13 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
                 .unwrap()
                 .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
-        let o = samples.get_list_element(i);
-        if !o.is_double() || !o.is_matrix() || o.nrow() != n_items {
-            panic!("All elements of 'samples' must be double matrices with a consistent number of rows.");
+        let o = samples.get_list_element(i).unwrap();
+        if !o.is_double() || !o.is_matrix() || o.nrow().unwrap() != n_items {
+            stop!("All elements of 'samples' must be double matrices with a consistent number of rows.");
         }
         let view = make_view(o);
         views.push(view)
@@ -526,7 +529,7 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
             "{}",
             timer.stamp("Made data structures.\n").unwrap().as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> =
         rand::seq::index::sample(&mut rng, n_samples, n_samples)
@@ -543,7 +546,7 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
             "{}",
             timer.stamp("Selected all candidates.\n").unwrap().as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> = pool.install(|| {
         selected_candidates_with_rngs
@@ -567,12 +570,12 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
                 .unwrap()
                 .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let mut candidates = Vec::with_capacity(selected_candidates_with_rngs.len());
     for (z, rng) in selected_candidates_with_rngs {
-        if interrupted || r::check_user_interrupt() {
-            panic!("Caught user interrupt before main loop, so aborting.");
+        if interrupted || R::check_user_interrupt() {
+            stop!("Caught user interrupt before main loop, so aborting.");
         }
         let loss = expected_loss_from_samples(z.view(), &views, a, &pool);
         candidates.push((z, loss, rng));
@@ -593,11 +596,11 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
     });
     if !quiet {
         rprint!("\n");
-        r::flush_console();
+        R::flush_console();
     }
     if timer.echo() {
         rprint!("{}", timer.stamp("Sweetened bests.\n").unwrap().as_str());
-        r::flush_console();
+        R::flush_console();
     }
     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
     let (best_z, _, best_loss, candidate_number, n_accepts, best_iteration, _) =
@@ -615,7 +618,7 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
             )
             .as_str()
         );
-        r::flush_console();
+        R::flush_console();
     }
     let columns_to_keep: Vec<usize> = best_z
         .axis_iter(Axis(1))
@@ -636,13 +639,13 @@ fn draws(samples: Rval, a: Rval, n_cores: Rval, quiet: Rval) -> Rval {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
     let list = Rval::new_list(3, pc);
-    list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
-    list.set_list_element(0, estimate);
-    list.set_list_element(1, rval!(best_loss));
-    list.set_list_element(2, rval!(timer.total_as_secs_f64()));
+    let _ = list.names_gets(rval!(["estimate", "expectedLoss", "secondsTotal",]));
+    let _ = list.set_list_element(0, estimate);
+    let _ = list.set_list_element(1, rval!(best_loss));
+    let _ = list.set_list_element(2, rval!(timer.total_as_secs_f64()));
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
-        r::flush_console();
+        R::flush_console();
     }
     list
 }
@@ -658,7 +661,7 @@ fn compute_expected_loss(z: Rval, samples: Rval, a: Rval, n_cores: Rval) -> Rval
     let n_samples = samples.len();
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
-        views.push(make_view(samples.get_list_element(i)));
+        views.push(make_view(samples.get_list_element(i).unwrap()));
     }
     rval!(expected_loss_from_samples(make_view(z), &views, a, &pool))
 }
@@ -672,7 +675,7 @@ fn compute_loss(z1: Rval, z2: Rval, a: Rval) -> Rval {
             None => 0.0,
         }
     } else {
-        panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+        stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
     rval!(loss)
 }
@@ -722,7 +725,7 @@ fn compute_loss_permutations(z1: Rval, z2: Rval, a: Rval) -> Rval {
             .reduce(f64::min)
             .unwrap()
     } else {
-        panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+        stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
     rval!(loss)
 }
@@ -739,7 +742,7 @@ fn compute_loss_augmented(z1: Rval, z2: Rval, a: Rval) -> Rval {
             None => (0.0, (vec![], vec![])),
         }
     } else {
-        panic!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+        stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
     };
     for x in solution.0.iter_mut() {
         *x += 1;
@@ -748,10 +751,10 @@ fn compute_loss_augmented(z1: Rval, z2: Rval, a: Rval) -> Rval {
         *x += 1;
     }
     let list = Rval::new_list(3, pc);
-    list.names_gets(rval!(["loss", "permutation1", "permutation2"]));
-    list.set_list_element(0, rval!(loss));
-    list.set_list_element(1, Rval::try_new(&solution.1[..], pc).unwrap());
-    list.set_list_element(2, Rval::try_new(&solution.0[..], pc).unwrap());
+    let _ = list.names_gets(rval!(["loss", "permutation1", "permutation2"]));
+    let _ = list.set_list_element(0, rval!(loss));
+    let _ = list.set_list_element(1, Rval::try_new(&solution.1[..], pc).unwrap());
+    let _ = list.set_list_element(2, Rval::try_new(&solution.0[..], pc).unwrap());
     list
 }
 
@@ -766,7 +769,12 @@ fn matrix_copy_into_column<'a>(
 }
 
 fn make_view(z: Rval) -> ArrayView2<'static, f64> {
-    unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.try_into().unwrap()) }
+    unsafe {
+        ArrayView::from_shape_ptr(
+            (z.nrow().unwrap(), z.ncol().unwrap()).f(),
+            z.try_into().unwrap(),
+        )
+    }
 }
 
 fn make_weight_matrices(

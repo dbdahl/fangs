@@ -34,6 +34,7 @@
 #' @param verbose If \code{TRUE}, details of the search for Cargo are shown. If
 #'   \code{FALSE}, no details are shown.  If it is a connection, then details
 #'   are shown and also written to the connection.
+#' @param run_twice Should the cargo command be run twice?
 #' @param stdout See argument of the same name in [base::system2()].
 #' @param stderr See argument of the same name in [base::system2()].
 #'
@@ -47,7 +48,7 @@
 #'     message("Cargo is not installed. Please run cargo::install() in an interactive session.")
 #' }
 #'
-run <- function(..., minimum_version=".", search_methods=c("cache","convention","path"), leave_no_trace=FALSE, environment_variables=list(), rustflags=NULL, verbose=TRUE, stdout="", stderr="") {
+run <- function(..., minimum_version=".", search_methods=c("cache","convention","path"), leave_no_trace=FALSE, environment_variables=list(), rustflags=NULL, verbose=TRUE, run_twice=FALSE, stdout="", stderr="") {
   args <- shQuote(c(...))
   msg <- function(...) {
     if ( ! isFALSE(verbose) ) base::message(..., appendLF=FALSE)
@@ -103,17 +104,17 @@ run <- function(..., minimum_version=".", search_methods=c("cache","convention",
       }
       output <- system3(cargo_cmd, "--version", stdout=TRUE, env=vars)
       if ( ! is.null(attr(output,"status")) ) {
-        msg("Cargo is installed, but broken. See the INSTALL file for help.\n")
+        msg("Cargo is installed, but broken.\nPlease try again after running 'cargo::install()' in an interactive session.\n")
         return(202)
       }
       version <- tryCatch({
         version <- strsplit(output," ",fixed=TRUE)[[1]][2]
         if ( is.na(version) ) {
-          msg(sprintf("Problem parsing Cargo version string: '%s'.\nSee the INSTALL file for help.\n",paste(output,collapse=",")))
+          msg(sprintf("Problem parsing Cargo version string: '%s'.\nPlease try again after running 'cargo::install()' in an interactive session.\n",paste(output,collapse=",")))
           return(203)
         }
         if ( utils::compareVersion(version, msrv) < 0 ) {
-          msg(sprintf("Cargo version '%s' is available, but '%s' is needed.\nSee the INSTALL file for help.\n",version,msrv))
+          msg(sprintf("Cargo version '%s' is available, but '%s' is needed.\nPlease upgrade your Cargo installation.\n",version,msrv))
           rustup_cmd <- normalizePath(file.path(dirname(cargo_cmd), paste0("rustup", ifelse(windows,".exe",""))), mustWork=FALSE)
           if ( ! can_update ) {
             if ( file.exists(rustup_cmd) ) {
@@ -130,7 +131,7 @@ run <- function(..., minimum_version=".", search_methods=c("cache","convention",
           } else vars
           exit_status <- system3(rustup_cmd, "update", env=vars2)
           if ( exit_status != 0 ) {
-            msg("Upgrade failed.\nSee the INSTALL file for help.\n")
+            msg("Upgrade failed.\nPlease try again by running 'cargo::install()' in an interactive session.\n")
             return(exit_status)
           }
           return(Recall())
@@ -140,14 +141,19 @@ run <- function(..., minimum_version=".", search_methods=c("cache","convention",
         version
       }, warning=identity, error=identity)
       if ( inherits(version,"warning") || inherits(version,"error") ) {
-        msg(sprintf("Problem parsing Cargo version string '%s', comparing it against '%s', or other error.\nSee the INSTALL file for help.\n", paste(output,collapse=","), msrv))
+        msg(sprintf("Problem parsing Cargo version string '%s', comparing it against '%s', or other error.\nPlease try again after running 'cargo::install()' in an interactive session.\n", paste(output,collapse=","), msrv))
         return(206)
       }
       0
     }
     status <- check_candidate()
     if ( status == 0 ) {
-      result <- system3(cargo_cmd, args, env=vars, stdout=stdout, stderr=stderr)
+      result_first <- system3(cargo_cmd, args, env=vars, stdout=stdout, stderr=stderr)
+      result <- if (run_twice) {
+        system3(cargo_cmd, args, env=c(vars, R_CARGO_SECOND_RUN=TRUE), stdout=stdout, stderr=stderr)
+      } else {
+        result_first
+      }
       msg("---\n")
       return(result)
     } else {
@@ -191,7 +197,7 @@ run <- function(..., minimum_version=".", search_methods=c("cache","convention",
       if ( ( ! is.null(status) ) && ( ! is.numeric(status) || ( status == 0 ) ) ) return(status)
     }
   }
-  msg("No suitable version of Cargo was found.\nSee the INSTALL file for help.\n---\n")
+  msg("No suitable version of Cargo was found.\nOne solution is to run 'cargo::install()'.\n---\n")
   1
 }
 
