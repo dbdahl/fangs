@@ -9,6 +9,13 @@
 #' @return The estimated expected FARO loss as a scalar value.
 #'
 #' @export
+#'
+#' @references
+#' D. B. Dahl, D. J. Johnson, R. J. Andros (2023+), 
+#' Comparison and Bayesian Estimation of Feature Allocations,
+#' Journal of Computational and Graphical Statistics,
+#' \doi{10.1080/10618600.2023.2204136}.
+#'
 #' @examples
 #' data(samplesFA)
 #' Z <- matrix(sample(c(0,1), 60, replace=TRUE), byrow=TRUE, nrow=20)

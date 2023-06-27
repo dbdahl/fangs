@@ -24,7 +24,7 @@ patients.
 }
 \references{
 R. L. Warr, D. B. Dahl, J. M. Meyer, A. Lui (2022),
-The Attraction Indian Buffet Distribution, Bayesian Analysis, in press.
+The Attraction Indian Buffet Distribution, Bayesian Analysis, 17 (3), 931-967,
 \doi{10.1214/21-BA1279}.
 }
 \keyword{datasets}

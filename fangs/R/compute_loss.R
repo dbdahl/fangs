@@ -15,6 +15,13 @@
 #'   of 3 elements including the loss and the two column permutations.
 #'
 #' @export
+#'
+#' @references
+#' D. B. Dahl, D. J. Johnson, R. J. Andros (2023+), 
+#' Comparison and Bayesian Estimation of Feature Allocations,
+#' Journal of Computational and Graphical Statistics,
+#' \doi{10.1080/10618600.2023.2204136}.
+#'
 #' @examples
 #' Z1 <- matrix(c(0,1,1,0,1,1,0,1,1,1,1,1), byrow=TRUE, nrow=6)
 #' Z2 <- matrix(c(0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0), byrow=TRUE, nrow=6)
