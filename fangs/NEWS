@@ -1,4 +1,4 @@
-0.2.12 (2023-06-27)
+0.2.13 (2023-07-14)
   * Updated reference for paper.
   * Updated to the latest framework from the cargo package.
   * Clippy and other clean-ups.
