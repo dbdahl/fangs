@@ -1,4 +1,6 @@
 0.2.13 (2023-07-14)
+  * Adjust "SystemRequirements" as per
+    [Using Rust in CRAN packages](https://cran.r-project.org/web/packages/using_rust.html)
   * Updated reference for paper.
   * Updated to the latest framework from the cargo package.
   * Clippy and other clean-ups.
