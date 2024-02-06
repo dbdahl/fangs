@@ -361,7 +361,7 @@ fn fangs(
         });
     let list = R::new_list(8, pc);
     let _ = list.set_names(
-        &[
+        [
             "estimate",
             "expectedLoss",
             "iteration",
@@ -373,15 +373,15 @@ fn fangs(
         ]
         .to_r(pc),
     );
-    list.set(0, &estimate).stop();
-    list.set(1, &best_loss.to_r(pc)).stop();
-    list.set(2, &(best_iteration as i32).to_r(pc)).stop();
-    list.set(3, &((iteration_counter + 1) as i32).to_r(pc))
+    list.set(0, estimate).stop();
+    list.set(1, best_loss.to_r(pc)).stop();
+    list.set(2, (best_iteration as i32).to_r(pc)).stop();
+    list.set(3, ((iteration_counter + 1) as i32).to_r(pc))
         .stop();
-    list.set(4, &seconds_in_initialization.to_r(pc)).stop();
-    list.set(5, &seconds_in_sweetening.to_r(pc)).stop();
-    list.set(7, &((sweeten_number + 1) as i32).to_r(pc)).stop();
-    list.set(6, &timer.total_as_secs_f64().to_r(pc)).stop();
+    list.set(4, seconds_in_initialization.to_r(pc)).stop();
+    list.set(5, seconds_in_sweetening.to_r(pc)).stop();
+    list.set(7, ((sweeten_number + 1) as i32).to_r(pc)).stop();
+    list.set(6, timer.total_as_secs_f64().to_r(pc)).stop();
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         R::flush_console();
@@ -443,11 +443,11 @@ fn fangs_double_greedy(
         }
     }
     let list = R::new_list(3, pc);
-    list.set_names(&["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
+    list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
         .stop();
-    list.set(0, &estimate).stop();
-    list.set(1, &loss.to_r(pc)).stop();
-    list.set(2, &timer.total_as_secs_f64().to_r(pc)).stop();
+    list.set(0, estimate).stop();
+    list.set(1, loss.to_r(pc)).stop();
+    list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
     list
 }
 
@@ -660,11 +660,11 @@ fn draws(samples: RObject, a: RObject, n_cores: RObject, quiet: RObject) -> RObj
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
     let list = R::new_list(3, pc);
-    list.set_names(&["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
+    list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
         .stop();
-    list.set(0, &estimate).stop();
-    list.set(1, &best_loss.to_r(pc)).stop();
-    list.set(2, &timer.total_as_secs_f64().to_r(pc)).stop();
+    list.set(0, estimate).stop();
+    list.set(1, best_loss.to_r(pc)).stop();
+    list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         R::flush_console();
@@ -795,12 +795,12 @@ fn compute_loss_augmented(z1: RObject, z2: RObject, a: RObject) -> RObject {
         *x += 1;
     }
     let list = R::new_list(3, pc);
-    list.set_names(&["loss", "permutation1", "permutation2"].to_r(pc))
+    list.set_names(["loss", "permutation1", "permutation2"].to_r(pc))
         .stop();
-    list.set(0, &loss.to_r(pc)).stop();
+    list.set(0, loss.to_r(pc)).stop();
     list.set(
         1,
-        &solution
+        solution
             .1
             .iter()
             .map(|x| i32::try_from(*x).unwrap())
@@ -809,7 +809,7 @@ fn compute_loss_augmented(z1: RObject, z2: RObject, a: RObject) -> RObject {
     .stop();
     list.set(
         2,
-        &solution
+        solution
             .0
             .iter()
             .map(|x| i32::try_from(*x).unwrap())
