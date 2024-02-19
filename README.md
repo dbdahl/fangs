@@ -1,6 +1,6 @@
-## Installation
+# Installation
 
-### Installation from CRAN
+## Installation from CRAN
 
 The latest release is available on [CRAN](https://cran.r-project.org/):
 
@@ -8,7 +8,7 @@ The latest release is available on [CRAN](https://cran.r-project.org/):
 install.packages('fangs')
 ```
 
-### Installation from Source
+## Installation from Source
 
 You can also install the latest development version from source.
 
