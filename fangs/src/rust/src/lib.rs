@@ -351,15 +351,15 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = R::new_matrix_double(n_items, columns_to_keep.len(), pc);
-    let estimate_slice = estimate.slice();
+    let mut estimate = R::new_matrix_double(n_items, columns_to_keep.len(), pc);
+    let estimate_slice = estimate.slice_mut();
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = R::new_list(8, pc);
+    let mut list = R::new_list(8, pc);
     let _ = list.set_names(
         [
             "estimate",
@@ -433,8 +433,8 @@ fn fangs_double_greedy(
         max_seconds,
         &timer,
     );
-    let estimate = R::new_matrix_double(n_items, z.ncols(), pc);
-    let estimate_slice = estimate.slice();
+    let mut estimate = R::new_matrix_double(n_items, z.ncols(), pc);
+    let estimate_slice = estimate.slice_mut();
     let mut index = 0;
     for j in 0..z.ncols() {
         for i in 0..n_items {
@@ -442,7 +442,7 @@ fn fangs_double_greedy(
             index += 1;
         }
     }
-    let list = R::new_list(3, pc);
+    let mut list = R::new_list(3, pc);
     list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
         .stop();
     list.set(0, estimate).stop();
@@ -651,15 +651,15 @@ fn draws(samples: RObject, a: RObject, n_cores: RObject, quiet: RObject) -> RObj
             }
         })
         .collect();
-    let estimate = R::new_matrix_double(n_items, columns_to_keep.len(), pc);
-    let estimate_slice = estimate.slice();
+    let mut estimate = R::new_matrix_double(n_items, columns_to_keep.len(), pc);
+    let estimate_slice = estimate.slice_mut();
     columns_to_keep
         .iter()
         .enumerate()
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = R::new_list(3, pc);
+    let mut list = R::new_list(3, pc);
     list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
         .stop();
     list.set(0, estimate).stop();
@@ -698,7 +698,7 @@ fn compute_loss(z1: RObject, z2: RObject, a: RObject) -> RObject {
     let z1 = z1.as_matrix().stop_str("'z1' is not a matrix.");
     let z2 = z2.as_matrix().stop_str("'z2' is not a matrix.");
     let a = a.as_f64().stop();
-    let loss = if z1.is_mode_double() && z2.is_mode_double() && z1.nrow() == z2.nrow() {
+    if z1.is_mode_double() && z2.is_mode_double() && z1.nrow() == z2.nrow() {
         match make_weight_matrix(
             make_view(z1.as_mode_double().unwrap()),
             make_view(z2.as_mode_double().unwrap()),
@@ -709,8 +709,7 @@ fn compute_loss(z1: RObject, z2: RObject, a: RObject) -> RObject {
         }
     } else {
         stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
-    };
-    loss
+    }
 }
 
 #[roxido]
@@ -794,7 +793,7 @@ fn compute_loss_augmented(z1: RObject, z2: RObject, a: RObject) -> RObject {
     for x in solution.1.iter_mut() {
         *x += 1;
     }
-    let list = R::new_list(3, pc);
+    let mut list = R::new_list(3, pc);
     list.set_names(["loss", "permutation1", "permutation2"].to_r(pc))
         .stop();
     list.set(0, loss.to_r(pc)).stop();
