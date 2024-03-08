@@ -23,9 +23,9 @@ fn get(
 ) -> RObject<roxido::r::Matrix, f64> {
     match samples.get(index) {
         Ok(element) => element
-            .as_matrix()
+            .matrix()
             .stop_str("All elements of 'samples' must be a matrix.")
-            .as_mode_double()
+            .double()
             .stop_str("All elements of 'samples' mus be of storage mode 'double'"),
         Err(_) => stop!("Index into 'samples' is out of bounds."),
     }
@@ -44,27 +44,24 @@ fn fangs(
     quiet: RObject,
 ) -> RObject {
     let mut timer = EchoTimer::new();
-    let samples = samples.as_list().stop_str("'samples' must be a list.");
+    let samples = samples.list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
     }
-    let a = a.as_f64().stop();
+    let a = a.f64().stop();
     let threshold = a / 2.0;
-    let n_baselines = n_baselines
-        .as_usize()
-        .map(|x| x.max(1).min(n_samples))
-        .stop();
-    let n_sweet = n_sweet.as_usize().map(|x| x.max(1).min(n_baselines)).stop();
-    let n_iterations = n_iterations.as_usize().stop();
-    let max_seconds = max_seconds.as_f64().stop();
-    let n_cores = n_cores.as_usize().stop();
+    let n_baselines = n_baselines.usize().map(|x| x.max(1).min(n_samples)).stop();
+    let n_sweet = n_sweet.usize().map(|x| x.max(1).min(n_baselines)).stop();
+    let n_iterations = n_iterations.usize().stop();
+    let max_seconds = max_seconds.f64().stop();
+    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
         .unwrap();
-    let use_neighbors = use_neighbors.as_bool().stop();
-    let quiet = quiet.as_bool().stop();
+    let use_neighbors = use_neighbors.bool().stop();
+    let quiet = quiet.bool().stop();
     let status_file = match std::env::var("FANGS_STATUS") {
         Ok(x) => Path::new(x.as_str()).to_owned(),
         _ => std::env::current_dir()
@@ -361,7 +358,7 @@ fn fangs(
         });
     let mut list = R::new_list(8, pc);
     let _ = list.set_names(
-        [
+        &[
             "estimate",
             "expectedLoss",
             "iteration",
@@ -373,15 +370,15 @@ fn fangs(
         ]
         .to_r(pc),
     );
-    list.set(0, estimate).stop();
-    list.set(1, best_loss.to_r(pc)).stop();
-    list.set(2, (best_iteration as i32).to_r(pc)).stop();
-    list.set(3, ((iteration_counter + 1) as i32).to_r(pc))
+    list.set(0, &estimate).stop();
+    list.set(1, &best_loss.to_r(pc)).stop();
+    list.set(2, &(best_iteration as i32).to_r(pc)).stop();
+    list.set(3, &((iteration_counter + 1) as i32).to_r(pc))
         .stop();
-    list.set(4, seconds_in_initialization.to_r(pc)).stop();
-    list.set(5, seconds_in_sweetening.to_r(pc)).stop();
-    list.set(7, ((sweeten_number + 1) as i32).to_r(pc)).stop();
-    list.set(6, timer.total_as_secs_f64().to_r(pc)).stop();
+    list.set(4, &seconds_in_initialization.to_r(pc)).stop();
+    list.set(5, &seconds_in_sweetening.to_r(pc)).stop();
+    list.set(7, &((sweeten_number + 1) as i32).to_r(pc)).stop();
+    list.set(6, &timer.total_as_secs_f64().to_r(pc)).stop();
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         R::flush_console();
@@ -397,15 +394,15 @@ fn fangs_double_greedy(
     n_cores: RObject,
 ) -> RObject {
     let timer = EchoTimer::new();
-    let samples = samples.as_list().stop_str("'samples' must be a list.");
+    let samples = samples.list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
     }
     let n_items = get(&samples, 0).nrow();
-    let max_seconds = max_seconds.as_f64().stop();
-    let a = a.as_f64().stop();
-    let n_cores = n_cores.as_usize().stop();
+    let max_seconds = max_seconds.f64().stop();
+    let a = a.f64().stop();
+    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -443,11 +440,11 @@ fn fangs_double_greedy(
         }
     }
     let mut list = R::new_list(3, pc);
-    list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
+    list.set_names(&["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
         .stop();
-    list.set(0, estimate).stop();
-    list.set(1, loss.to_r(pc)).stop();
-    list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
+    list.set(0, &estimate).stop();
+    list.set(1, &loss.to_r(pc)).stop();
+    list.set(2, &timer.total_as_secs_f64().to_r(pc)).stop();
     list
 }
 
@@ -501,21 +498,21 @@ fn neighborhood_sweeten(
 #[roxido]
 fn draws(samples: RObject, a: RObject, n_cores: RObject, quiet: RObject) -> RObject {
     let mut timer = EchoTimer::new();
-    let samples = samples.as_list().stop();
+    let samples = samples.list().stop();
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
     }
-    let a = a.as_f64().stop();
-    //let n_candidates = n_candidates.as_usize().max(1).min(n_samples);
-    //let n_bests = n_bests.as_usize().max(1).min(n_candidates);
-    //let n_iterations = n_iterations.as_usize();
-    let n_cores = n_cores.as_usize().stop();
+    let a = a.f64().stop();
+    //let n_candidates = n_candidates.usize().max(1).min(n_samples);
+    //let n_bests = n_bests.usize().max(1).min(n_candidates);
+    //let n_iterations = n_iterations.usize();
+    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
         .unwrap();
-    let quiet = quiet.as_bool().stop();
+    let quiet = quiet.bool().stop();
     let n_items = get(&samples, 0).nrow();
     let mut rng = Pcg64Mcg::from_seed(R::random_bytes::<16>());
     let mut interrupted = false;
@@ -660,11 +657,11 @@ fn draws(samples: RObject, a: RObject, n_cores: RObject, quiet: RObject) -> RObj
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
     let mut list = R::new_list(3, pc);
-    list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
+    list.set_names(&["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
         .stop();
-    list.set(0, estimate).stop();
-    list.set(1, best_loss.to_r(pc)).stop();
-    list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
+    list.set(0, &estimate).stop();
+    list.set(1, &best_loss.to_r(pc)).stop();
+    list.set(2, &timer.total_as_secs_f64().to_r(pc)).stop();
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
         R::flush_console();
@@ -674,13 +671,13 @@ fn draws(samples: RObject, a: RObject, n_cores: RObject, quiet: RObject) -> RObj
 
 #[roxido]
 fn compute_expected_loss(z: RObject, samples: RObject, a: RObject, n_cores: RObject) -> RObject {
-    let z = z.as_matrix().stop();
+    let z = z.matrix().stop();
     let z = z
-        .as_mode_double()
+        .double()
         .stop_str("'Z' should be have double storage mode.");
-    let samples = samples.as_list().stop();
-    let a = a.as_f64().stop();
-    let n_cores = n_cores.as_usize().stop();
+    let samples = samples.list().stop();
+    let a = a.f64().stop();
+    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -695,13 +692,13 @@ fn compute_expected_loss(z: RObject, samples: RObject, a: RObject, n_cores: RObj
 
 #[roxido]
 fn compute_loss(z1: RObject, z2: RObject, a: RObject) -> RObject {
-    let z1 = z1.as_matrix().stop_str("'z1' is not a matrix.");
-    let z2 = z2.as_matrix().stop_str("'z2' is not a matrix.");
-    let a = a.as_f64().stop();
-    if z1.is_mode_double() && z2.is_mode_double() && z1.nrow() == z2.nrow() {
+    let z1 = z1.matrix().stop_str("'z1' is not a matrix.");
+    let z2 = z2.matrix().stop_str("'z2' is not a matrix.");
+    let a = a.f64().stop();
+    if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
         match make_weight_matrix(
-            make_view(z1.as_mode_double().unwrap()),
-            make_view(z2.as_mode_double().unwrap()),
+            make_view(z1.double().stop()),
+            make_view(z2.double().stop()),
             a,
         ) {
             Some(weight_matrix) => loss(&weight_matrix),
@@ -715,13 +712,13 @@ fn compute_loss(z1: RObject, z2: RObject, a: RObject) -> RObject {
 #[roxido]
 fn compute_loss_permutations(z1: RObject, z2: RObject, a: RObject) -> RObject {
     use itertools::Itertools;
-    let z1 = z1.as_matrix().stop_str("'z1' is not a matrix.");
-    let z2 = z2.as_matrix().stop_str("'z2' is not a matrix.");
-    let a = a.as_f64().stop();
+    let z1 = z1.matrix().stop_str("'z1' is not a matrix.");
+    let z2 = z2.matrix().stop_str("'z2' is not a matrix.");
+    let a = a.f64().stop();
     let b = 2.0 - a;
-    let loss = if z1.is_mode_double() && z2.is_mode_double() && z1.nrow() == z2.nrow() {
-        let v1 = make_view(z1.as_mode_double().unwrap());
-        let v2 = make_view(z2.as_mode_double().unwrap());
+    let loss = if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
+        let v1 = make_view(z1.double().stop());
+        let v2 = make_view(z2.double().stop());
         let zero = Array1::zeros(v1.nrows());
         let zero_view = zero.view();
         let k = v1.ncols().max(v2.ncols());
@@ -766,17 +763,17 @@ fn compute_loss_permutations(z1: RObject, z2: RObject, a: RObject) -> RObject {
 #[roxido]
 fn compute_loss_augmented(z1: RObject, z2: RObject, a: RObject) -> RObject {
     let z1 = z1
-        .as_matrix()
+        .matrix()
         .stop_str("'Z1' is not a matrix")
-        .as_mode_double()
+        .double()
         .stop_str("'Z1' should have double storage mode");
     let z2 = z2
-        .as_matrix()
+        .matrix()
         .stop_str("'Z2' is not a matrix")
-        .as_mode_double()
+        .double()
         .stop_str("'Z2' should have double storage mode");
-    let a = a.as_f64().stop();
-    let (loss, mut solution) = if z1.is_mode_double() && z2.is_mode_double() {
+    let a = a.f64().stop();
+    let (loss, mut solution) = if z1.is_double() && z2.is_double() {
         match make_weight_matrix(make_view(z1), make_view(z2), a) {
             Some(weight_matrix) => {
                 let solution = lapjv::lapjv(&weight_matrix).unwrap();
@@ -794,12 +791,12 @@ fn compute_loss_augmented(z1: RObject, z2: RObject, a: RObject) -> RObject {
         *x += 1;
     }
     let mut list = R::new_list(3, pc);
-    list.set_names(["loss", "permutation1", "permutation2"].to_r(pc))
+    list.set_names(&["loss", "permutation1", "permutation2"].to_r(pc))
         .stop();
-    list.set(0, loss.to_r(pc)).stop();
+    list.set(0, &loss.to_r(pc)).stop();
     list.set(
         1,
-        solution
+        &solution
             .1
             .iter()
             .map(|x| i32::try_from(*x).unwrap())
@@ -808,7 +805,7 @@ fn compute_loss_augmented(z1: RObject, z2: RObject, a: RObject) -> RObject {
     .stop();
     list.set(
         2,
-        solution
+        &solution
             .0
             .iter()
             .map(|x| i32::try_from(*x).unwrap())
