@@ -17,10 +17,7 @@ use timers::{EchoTimer, PeriodicTimer};
 #[allow(unused_imports)]
 use approx::assert_ulps_eq;
 
-fn get(
-    samples: &RObject<roxido::r::Vector, roxido::r::List>,
-    index: usize,
-) -> &RObject<roxido::r::Matrix, f64> {
+fn get(samples: &RObject<RVector, RList>, index: usize) -> &RObject<RMatrix, f64> {
     match samples.get(index) {
         Ok(element) => element
             .matrix()
@@ -34,14 +31,14 @@ fn get(
 #[roxido]
 fn fangs(
     samples: &RObject,
-    n_iterations: &RObject,
-    max_seconds: &RObject,
-    n_baselines: &RObject,
-    n_sweet: &RObject,
-    a: &RObject,
-    n_cores: &RObject,
-    use_neighbors: &RObject,
-    quiet: &RObject,
+    n_iterations: usize,
+    max_seconds: f64,
+    n_baselines: usize,
+    n_sweet: usize,
+    a: f64,
+    n_cores: usize,
+    use_neighbors: bool,
+    quiet: bool,
 ) -> &RObject {
     let mut timer = EchoTimer::new();
     let samples = samples.list().stop_str("'samples' must be a list.");
@@ -49,19 +46,13 @@ fn fangs(
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
     }
-    let a = a.f64().stop();
     let threshold = a / 2.0;
-    let n_baselines = n_baselines.usize().map(|x| x.max(1).min(n_samples)).stop();
-    let n_sweet = n_sweet.usize().map(|x| x.max(1).min(n_baselines)).stop();
-    let n_iterations = n_iterations.usize().stop();
-    let max_seconds = max_seconds.f64().stop();
-    let n_cores = n_cores.usize().stop();
+    let n_baselines = n_baselines.max(1);
+    let n_sweet = (n_sweet.max(1)).min(n_baselines);
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
         .unwrap();
-    let use_neighbors = use_neighbors.bool().stop();
-    let quiet = quiet.bool().stop();
     let status_file = match std::env::var("FANGS_STATUS") {
         Ok(x) => Path::new(x.as_str()).to_owned(),
         _ => std::env::current_dir()
@@ -387,12 +378,7 @@ fn fangs(
 }
 
 #[roxido]
-fn fangs_double_greedy(
-    samples: &RObject,
-    max_seconds: &RObject,
-    a: &RObject,
-    n_cores: &RObject,
-) -> &RObject {
+fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usize) -> &RObject {
     let timer = EchoTimer::new();
     let samples = samples.list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
@@ -400,9 +386,6 @@ fn fangs_double_greedy(
         stop!("Number of samples must be at least one.");
     }
     let n_items = get(samples, 0).nrow();
-    let max_seconds = max_seconds.f64().stop();
-    let a = a.f64().stop();
-    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -497,23 +480,17 @@ fn neighborhood_sweeten(
 }
 
 #[roxido]
-fn draws(samples: &RObject, a: &RObject, n_cores: &RObject, quiet: &RObject) -> &RObject {
+fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
     let mut timer = EchoTimer::new();
     let samples = samples.list().stop();
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
     }
-    let a = a.f64().stop();
-    //let n_candidates = n_candidates.usize().max(1).min(n_samples);
-    //let n_bests = n_bests.usize().max(1).min(n_candidates);
-    //let n_iterations = n_iterations.usize();
-    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
         .unwrap();
-    let quiet = quiet.bool().stop();
     let n_items = get(samples, 0).nrow();
     let mut rng = Pcg64Mcg::from_seed(Pc::random_bytes::<16>());
     let mut interrupted = false;
@@ -673,17 +650,14 @@ fn draws(samples: &RObject, a: &RObject, n_cores: &RObject, quiet: &RObject) -> 
 #[roxido]
 fn compute_expected_loss(
     z: &RObject,
-    samples: &RObject,
-    a: &RObject,
-    n_cores: &RObject,
+    samples: &RObject<RVector, RList>,
+    a: f64,
+    n_cores: usize,
 ) -> &RObject {
     let z = z.matrix().stop();
     let z = z
         .double()
         .stop_str("'Z' should be have double storage mode.");
-    let samples = samples.list().stop();
-    let a = a.f64().stop();
-    let n_cores = n_cores.usize().stop();
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -697,11 +671,8 @@ fn compute_expected_loss(
 }
 
 #[roxido]
-fn compute_loss(z1: &RObject, z2: &RObject, a: &RObject) -> &RObject {
-    let z1 = z1.matrix().stop_str("'z1' is not a matrix.");
-    let z2 = z2.matrix().stop_str("'z2' is not a matrix.");
-    let a = a.f64().stop();
-    if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
+fn compute_loss(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) -> &RObject {
+    if z1.nrow() == z2.nrow() {
         match make_weight_matrix(
             make_view(z1.double().stop()),
             make_view(z2.double().stop()),
@@ -711,18 +682,19 @@ fn compute_loss(z1: &RObject, z2: &RObject, a: &RObject) -> &RObject {
             None => 0.0,
         }
     } else {
-        stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'.");
+        stop!("Inconsistent number of rows in 'Z1' and 'Z2'.");
     }
 }
 
 #[roxido]
-fn compute_loss_permutations(z1: &RObject, z2: &RObject, a: &RObject) -> &RObject {
+fn compute_loss_permutations(
+    z1: &RObject<RMatrix, f64>,
+    z2: &RObject<RMatrix, f64>,
+    a: f64,
+) -> &RObject {
     use itertools::Itertools;
-    let z1 = z1.matrix().stop_str("'z1' is not a matrix.");
-    let z2 = z2.matrix().stop_str("'z2' is not a matrix.");
-    let a = a.f64().stop();
     let b = 2.0 - a;
-    let loss = if z1.is_double() && z2.is_double() && z1.nrow() == z2.nrow() {
+    let loss = if z1.nrow() == z2.nrow() {
         let v1 = make_view(z1.double().stop());
         let v2 = make_view(z2.double().stop());
         let zero = Array1::zeros(v1.nrows());
@@ -761,25 +733,18 @@ fn compute_loss_permutations(z1: &RObject, z2: &RObject, a: &RObject) -> &RObjec
             .reduce(f64::min)
             .unwrap()
     } else {
-        stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'");
+        stop!("Inconsistent number of rows in 'Z1' and 'Z2'.");
     };
     loss
 }
 
 #[roxido]
-fn compute_loss_augmented(z1: &RObject, z2: &RObject, a: &RObject) -> &RObject {
-    let z1 = z1
-        .matrix()
-        .stop_str("'Z1' is not a matrix")
-        .double()
-        .stop_str("'Z1' should have double storage mode");
-    let z2 = z2
-        .matrix()
-        .stop_str("'Z2' is not a matrix")
-        .double()
-        .stop_str("'Z2' should have double storage mode");
-    let a = a.f64().stop();
-    let (loss, mut solution) = if z1.is_double() && z2.is_double() {
+fn compute_loss_augmented(
+    z1: &RObject<RMatrix, f64>,
+    z2: &RObject<RMatrix, f64>,
+    a: f64,
+) -> &RObject {
+    let (loss, mut solution) = {
         match make_weight_matrix(make_view(z1), make_view(z2), a) {
             Some(weight_matrix) => {
                 let solution = lapjv::lapjv(&weight_matrix).unwrap();
@@ -787,8 +752,6 @@ fn compute_loss_augmented(z1: &RObject, z2: &RObject, a: &RObject) -> &RObject {
             }
             None => (0.0, (vec![], vec![])),
         }
-    } else {
-        stop!("Unsupported or inconsistent types for 'Z1' and 'Z2'");
     };
     for x in solution.0.iter_mut() {
         *x += 1;
@@ -831,7 +794,7 @@ fn matrix_copy_into_column<'a>(
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-fn make_view(z: &RObject<roxido::r::Matrix, f64>) -> ArrayView2<'static, f64> {
+fn make_view(z: &RObject<RMatrix, f64>) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.slice().as_ptr()) }
 }
 
