@@ -52,6 +52,8 @@ pub struct RSymbol;
 
 pub struct RUnknown;
 
+pub struct RAtomic;
+
 pub struct RCharacter;
 
 pub struct RList;
@@ -70,7 +72,7 @@ impl Atomic for i32 {}
 impl Atomic for u8 {}
 impl Atomic for bool {}
 impl Atomic for RCharacter {}
-impl Atomic for RUnknown {}
+impl Atomic for RAtomic {}
 
 impl Pc {
     /// Allocate a new protection counter.
@@ -486,24 +488,6 @@ impl<RType, RMode> RObject<RType, RMode> {
         }
     }
 
-    pub fn scalar(&self) -> Result<&RObject<RScalar>, &'static str> {
-        let s = self.vector()?;
-        if s.is_scalar() {
-            Ok(self.transmute())
-        } else {
-            Err("Not a scalar")
-        }
-    }
-
-    pub fn scalar_mut(&mut self) -> Result<&mut RObject<RScalar>, &'static str> {
-        let s = self.vector()?;
-        if s.is_scalar() {
-            Ok(self.transmute_mut())
-        } else {
-            Err("Not a scalar")
-        }
-    }
-
     pub fn vector(&self) -> Result<&RObject<RVector>, &'static str> {
         if self.is_vector() {
             Ok(self.transmute())
@@ -520,9 +504,43 @@ impl<RType, RMode> RObject<RType, RMode> {
         }
     }
 
+    pub fn scalar(&self) -> Result<&RObject<RScalar, RAtomic>, &'static str> {
+        let s = self.vector_atomic()?;
+        if s.is_scalar() {
+            Ok(self.transmute())
+        } else {
+            Err("Not a scalar")
+        }
+    }
+
+    pub fn scalar_mut(&mut self) -> Result<&mut RObject<RScalar, RAtomic>, &'static str> {
+        let s = self.vector_atomic()?;
+        if s.is_scalar() {
+            Ok(self.transmute_mut())
+        } else {
+            Err("Not a scalar")
+        }
+    }
+
+    pub fn vector_atomic(&self) -> Result<&RObject<RVector, RAtomic>, &'static str> {
+        if self.is_vector_atomic() {
+            Ok(self.transmute())
+        } else {
+            Err("Not a vector")
+        }
+    }
+
+    pub fn vector_atomic_mut(&mut self) -> Result<&mut RObject<RVector, RAtomic>, &'static str> {
+        if self.is_vector_atomic() {
+            Ok(self.transmute_mut())
+        } else {
+            Err("Not a vector")
+        }
+    }
+
     /// Check if appropriate to characterize as an RObject<RMatrix>.
     /// Checks using R's `Rf_isMatrix` function.
-    pub fn matrix(&self) -> Result<&RObject<RMatrix>, &'static str> {
+    pub fn matrix(&self) -> Result<&RObject<RMatrix, RAtomic>, &'static str> {
         if self.is_matrix() {
             Ok(self.transmute())
         } else {
@@ -532,7 +550,7 @@ impl<RType, RMode> RObject<RType, RMode> {
 
     /// Check if appropriate to characterize as an RObject<RMatrix>.
     /// Checks using R's `Rf_isMatrix` function.
-    pub fn matrix_mut(&mut self) -> Result<&mut RObject<RMatrix>, &'static str> {
+    pub fn matrix_mut(&mut self) -> Result<&mut RObject<RMatrix, RAtomic>, &'static str> {
         if self.is_matrix() {
             Ok(self.transmute_mut())
         } else {
@@ -667,8 +685,8 @@ impl<RType, RMode> RObject<RType, RMode> {
 
     /// Check if RObject can be interpreted as an NA value in R.
     pub fn is_na(&self) -> bool {
-        if self.is_vector() {
-            let s: &RObject<RVector> = self.transmute();
+        if self.is_vector_atomic() {
+            let s: &RObject<RVector, RAtomic> = self.transmute();
             if s.is_scalar() {
                 if s.is_double() {
                     unsafe { R_IsNA(Rf_asReal(s.sexp())) != 0 }
@@ -691,8 +709,8 @@ impl<RType, RMode> RObject<RType, RMode> {
 
     /// Check if RObject can be interpreted as an NaN value in R.
     pub fn is_nan(&self) -> bool {
-        if self.is_vector() {
-            let s: &RObject<RVector> = self.transmute();
+        if self.is_vector_atomic() {
+            let s: &RObject<RVector, RAtomic> = self.transmute();
             if s.is_scalar() && s.is_double() {
                 unsafe { R_IsNaN(Rf_asReal(s.sexp())) != 0 }
             } else {
@@ -704,6 +722,10 @@ impl<RType, RMode> RObject<RType, RMode> {
     }
 
     pub fn is_vector(&self) -> bool {
+        self.is_vector_atomic() || self.is_list()
+    }
+
+    pub fn is_vector_atomic(&self) -> bool {
         unsafe { Rf_isVectorAtomic(self.sexp()) != 0 }
     }
 
@@ -778,7 +800,25 @@ impl<RType: HasLength, RMode> RObject<RType, RMode> {
 
     /// Checks to see if the RObject is a scalar (has a length of 1).
     pub fn is_scalar(&self) -> bool {
-        unsafe { Rf_xlength(self.sexp()) == 1 }
+        self.is_vector_atomic() && { unsafe { Rf_xlength(self.sexp()) == 1 } }
+    }
+
+    /// Check if appropriate to characterize storage mode as "double".
+    pub fn atomic(&self) -> Result<&RObject<RType, RAtomic>, &'static str> {
+        if self.is_vector_atomic() {
+            Ok(self.transmute())
+        } else {
+            Err("Not of an atomic vector")
+        }
+    }
+
+    /// Check if appropriate to characterize storage mode as "double".
+    pub fn atomic_mut(&mut self) -> Result<&mut RObject<RType, RAtomic>, &'static str> {
+        if self.is_vector_atomic() {
+            Ok(self.transmute_mut())
+        } else {
+            Err("Not of an atomic vector")
+        }
     }
 }
 
@@ -1648,7 +1688,7 @@ impl RObject<RVector, RList> {
         let mut nrow = -1;
         for i in 0..self.len() {
             let x = self.get(i).unwrap();
-            if x.is_vector() {
+            if x.is_vector_atomic() {
                 return Err("Expected an atomic vector... Have you set the list elements yet?");
             }
             let len = unsafe { Rf_xlength(x.sexp()) };
@@ -1716,7 +1756,7 @@ impl<RMode> RObject<RMatrix, RMode> {
     /// Set the dimnames of a matrix.
     pub fn set_dimnames(&mut self, dimnames: &RObject<RVector, RList>) -> Result<(), &'static str> {
         match dimnames.get(0) {
-            Ok(rownames) => match rownames.vector() {
+            Ok(rownames) => match rownames.vector_atomic() {
                 Ok(rownames) => {
                     if rownames.len() != self.nrow() {
                         return Err("Row names do not match the number of rows");
@@ -1729,7 +1769,7 @@ impl<RMode> RObject<RMatrix, RMode> {
             Err(_) => return Err("No row names element found"),
         };
         match dimnames.get(1) {
-            Ok(colnames) => match colnames.vector() {
+            Ok(colnames) => match colnames.vector_atomic() {
                 Ok(colnames) => {
                     if colnames.len() != self.ncol() {
                         return Err("Column names do not match the number of columns");

@@ -283,6 +283,17 @@ fn roxido_fn(options: Vec<NestedMeta>, item_fn: syn::ItemFn) -> TokenStream {
                                         }
                                         if let Some(&rtype) = tasks.get(1) {
                                             match rtype {
+                                                "RAtomic" => {
+                                                    if mutable {
+                                                        generated_statements.push(parse_quote! {
+                                                            let #name = #name.atomic_mut().stop_closure(|| format!("'{}' is expected to have storage mode 'double'", "#name"));
+                                                        });
+                                                    } else {
+                                                        generated_statements.push(parse_quote! {
+                                                            let #name = #name.atomic().stop_closure(|| format!("'{}' is expected to have storage mode 'double'", "#name"));
+                                                        });
+                                                    }
+                                                }
                                                 "f64" => {
                                                     if mutable {
                                                         generated_statements.push(parse_quote! {
@@ -350,7 +361,7 @@ fn roxido_fn(options: Vec<NestedMeta>, item_fn: syn::ItemFn) -> TokenStream {
                                                     }
                                                 }
                                                 e => {
-                                                    panic!("'{}' has '{}' as the second type parameter, but one of the following was expected: f64, i32, u8, bool, Character", name_as_string, e);
+                                                    panic!("'{}' has '{}' as the second type parameter, but one of the following was expected: f64, i32, u8, bool, Character, RAtomic, RList", name_as_string, e);
                                                 }
                                             }
                                         }
