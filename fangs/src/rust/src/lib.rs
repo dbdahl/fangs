@@ -17,7 +17,7 @@ use timers::{EchoTimer, PeriodicTimer};
 #[allow(unused_imports)]
 use approx::assert_ulps_eq;
 
-fn get(samples: &RObject<RVector, RList>, index: usize) -> &RObject<RMatrix, f64> {
+fn get(samples: &RObject<RList>, index: usize) -> &RObject<RMatrix, f64> {
     match samples.get(index) {
         Ok(element) => element
             .matrix()
@@ -650,7 +650,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
 #[roxido]
 fn compute_expected_loss(
     z: &RObject,
-    samples: &RObject<RVector, RList>,
+    samples: &RObject<RList>,
     a: f64,
     n_cores: usize,
 ) -> &RObject {
