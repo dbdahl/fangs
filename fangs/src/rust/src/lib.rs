@@ -20,7 +20,7 @@ use approx::assert_ulps_eq;
 fn get(samples: &RObject<RList>, index: usize) -> &RObject<RMatrix, f64> {
     match samples.get(index) {
         Ok(element) => element
-            .matrix()
+            .as_matrix()
             .stop_str("All elements of 'samples' must be a matrix.")
             .as_f64()
             .stop_str("All elements of 'samples' mus be of storage mode 'double'"),
@@ -41,7 +41,7 @@ fn fangs(
     quiet: bool,
 ) {
     let mut timer = EchoTimer::new();
-    let samples = samples.list().stop_str("'samples' must be a list.");
+    let samples = samples.as_list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
@@ -377,7 +377,7 @@ fn fangs(
 #[roxido]
 fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usize) {
     let timer = EchoTimer::new();
-    let samples = samples.list().stop_str("'samples' must be a list.");
+    let samples = samples.as_list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
@@ -477,7 +477,7 @@ fn neighborhood_sweeten(
 #[roxido]
 fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
     let mut timer = EchoTimer::new();
-    let samples = samples.list().stop();
+    let samples = samples.as_list().stop();
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
@@ -642,7 +642,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
 
 #[roxido]
 fn compute_expected_loss(z: &RObject, samples: &RObject<RList>, a: f64, n_cores: usize) {
-    let z = z.matrix().stop();
+    let z = z.as_matrix().stop();
     let z = z
         .as_f64()
         .stop_str("'Z' should be have double storage mode.");
