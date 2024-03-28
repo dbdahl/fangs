@@ -1169,40 +1169,50 @@ impl<RMode> RObject<RScalar, RMode> {
 }
 
 macro_rules! rscalar {
-    ($tipe:ty, $tipe2:ty, $code:expr) => {
+    ($tipe:ty, $tipe2:ty, $code1:expr, $code2:expr, $code3:expr) => {
         impl RObject<RScalar, $tipe> {
             #[allow(clippy::mut_from_ref)]
             pub fn from_value(value: $tipe2, pc: &Pc) -> &mut Self {
-                pc.transmute_sexp_mut(pc.protect(unsafe { $code(value) }))
+                pc.transmute_sexp_mut(pc.protect(unsafe { $code1(value) }))
             }
 
             /// Get the value at a certain index in an $tipe RVector.
             pub fn get(&self) -> $tipe2 {
-                self.transmute::<RVector, $tipe>().get(0).unwrap()
+                unsafe { $code2(self.sexp(), 0) }
             }
 
             /// Set the value at a certain index in an $tipe RVector.
             pub fn set(&mut self, value: $tipe2) {
-                let _ = self.transmute_mut::<RVector, $tipe>().set(0, value);
+                unsafe { $code3(self.sexp(), 0, value) }
             }
         }
     };
 }
 
-rscalar!(f64, f64, Rf_ScalarReal);
-rscalar!(i32, i32, Rf_ScalarInteger);
-rscalar!(u8, u8, Rf_ScalarRaw);
-rscalar!(bool, i32, Rf_ScalarLogical);
+rscalar!(f64, f64, Rf_ScalarReal, REAL_ELT, SET_REAL_ELT);
+rscalar!(i32, i32, Rf_ScalarInteger, INTEGER_ELT, SET_INTEGER_ELT);
+rscalar!(u8, u8, Rf_ScalarRaw, RAW_ELT, SET_RAW_ELT);
+rscalar!(bool, i32, Rf_ScalarLogical, LOGICAL_ELT, SET_LOGICAL_ELT);
 
 impl RObject<RScalar, bool> {
     /// Get the value at a certain index in a logical RVector.
     pub fn get_bool(&self) -> bool {
-        self.transmute::<RVector, bool>().get_bool(0).unwrap()
+        unsafe { LOGICAL_ELT(self.sexp(), 0) == Rboolean_TRUE as i32 }
     }
 
     /// Set the value at a certain index in a logical RVector.
     pub fn set_bool(&mut self, value: bool) {
-        let _ = self.transmute_mut::<RVector, bool>().set_bool(0, value);
+        unsafe {
+            SET_LOGICAL_ELT(
+                self.sexp(),
+                0,
+                if value {
+                    Rboolean_TRUE as i32
+                } else {
+                    Rboolean_FALSE as i32
+                },
+            )
+        }
     }
 }
 
@@ -1440,9 +1450,12 @@ impl RObject<RList> {
         pc.transmute_sexp_mut(sexp)
     }
 
+    #[allow(clippy::mut_from_ref)]
     pub fn with_names<'a, const N: usize>(names: [&str; N], pc: &'a Pc) -> &'a mut Self {
         let result = Self::new(names.len(), pc);
-        let _ = result.set_names(names.to_r(pc));
+        unsafe {
+            Rf_namesgets(result.sexp(), names.to_r(pc).sexp());
+        }
         result
     }
 }
