@@ -22,7 +22,7 @@ fn get(samples: &RObject<RList>, index: usize) -> &RObject<RMatrix, f64> {
         Ok(element) => element
             .matrix()
             .stop_str("All elements of 'samples' must be a matrix.")
-            .double()
+            .as_f64()
             .stop_str("All elements of 'samples' mus be of storage mode 'double'"),
         Err(_) => stop!("Index into 'samples' is out of bounds."),
     }
@@ -39,7 +39,7 @@ fn fangs(
     n_cores: usize,
     use_neighbors: bool,
     quiet: bool,
-) -> &RObject {
+) {
     let mut timer = EchoTimer::new();
     let samples = samples.list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
@@ -62,7 +62,7 @@ fn fangs(
     let o = get(samples, 0);
     let n_items = o.nrow();
     let mut max_n_features_observed = 0;
-    let mut rng = Pcg64Mcg::from_seed(Pc::random_bytes::<16>());
+    let mut rng = Pcg64Mcg::from_seed(R::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
         interrupted |= rprint!(
@@ -78,7 +78,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
@@ -95,7 +95,7 @@ fn fangs(
             "{}",
             timer.stamp("Made data structures.\n").unwrap().as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let baselines_with_rngs: Vec<_> = rand::seq::index::sample(&mut rng, n_samples, n_baselines)
         .into_iter()
@@ -163,11 +163,11 @@ fn fangs(
             "{}",
             timer.stamp("Made initial estimates.\n").unwrap().as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let mut initials = Vec::with_capacity(initials_with_rngs.len());
     for (z, rng) in initials_with_rngs {
-        if interrupted || Pc::check_user_interrupt() {
+        if interrupted || R::check_user_interrupt() {
             stop!("Caught user interrupt before main loop, so aborting.");
         }
         let weight_matrices = make_weight_matrices(z.view(), &views, a, &pool);
@@ -182,7 +182,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     initials.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
     initials.truncate(n_sweet);
@@ -205,7 +205,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let seconds_in_initialization = timer.total_as_secs_f64();
     let mut period_timer = PeriodicTimer::new(1.0);
@@ -268,7 +268,7 @@ fn fangs(
                             )
                             .as_str()
                         );
-                        Pc::flush_console();
+                        R::flush_console();
                     }
                     sweets.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
                     let best = sweets.first().unwrap();
@@ -285,19 +285,19 @@ fn fangs(
                     )
                         .as_str()
                     );
-                    Pc::flush_console();
+                    R::flush_console();
                 });
             }
-            if interrupted || Pc::check_user_interrupt() {
+            if interrupted || R::check_user_interrupt() {
                 rprint!("\nCaught user interrupt, so breaking out early.");
-                Pc::flush_console();
+                R::flush_console();
                 break;
             }
         }
     }
     if !quiet {
         rprint!("\n");
-        Pc::flush_console();
+        R::flush_console();
     }
     let seconds_in_sweetening = timer.total_as_secs_f64() - seconds_in_initialization;
     if timer.echo() {
@@ -308,7 +308,7 @@ fn fangs(
                 .unwrap()
                 .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     sweets.sort_unstable_by(|x, y| x.1.partial_cmp(&y.1).unwrap());
     let (best_z, best_loss, _, sweeten_number, n_accepts, best_iteration, _) =
@@ -326,7 +326,7 @@ fn fangs(
             )
             .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let columns_to_keep: Vec<usize> = best_z
         .axis_iter(Axis(1))
@@ -339,7 +339,7 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = pc.new_matrix_double(n_items, columns_to_keep.len());
+    let estimate = RObject::<RMatrix, f64>::new(n_items, columns_to_keep.len(), pc);
     let estimate_slice = estimate.slice_mut();
     columns_to_keep
         .iter()
@@ -347,20 +347,17 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = pc.new_list(8);
-    let _ = list.set_names(
-        [
-            "estimate",
-            "expectedLoss",
-            "iteration",
-            "nIterations",
-            "secondsInitialization",
-            "secondsSweetening",
-            "secondsTotal",
-            "whichSweet",
-        ]
-        .to_r(pc),
-    );
+    let names = [
+        "estimate",
+        "expectedLoss",
+        "iteration",
+        "nIterations",
+        "secondsInitialization",
+        "secondsSweetening",
+        "secondsTotal",
+        "whichSweet",
+    ];
+    let list = RObject::<RList>::with_names(names, pc);
     list.set(0, estimate).stop();
     list.set(1, best_loss.to_r(pc)).stop();
     list.set(2, (best_iteration as i32).to_r(pc)).stop();
@@ -372,13 +369,13 @@ fn fangs(
     list.set(6, timer.total_as_secs_f64().to_r(pc)).stop();
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
-        Pc::flush_console();
+        R::flush_console();
     }
     list
 }
 
 #[roxido]
-fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usize) -> &RObject {
+fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usize) {
     let timer = EchoTimer::new();
     let samples = samples.list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
@@ -413,7 +410,7 @@ fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usi
         max_seconds,
         &timer,
     );
-    let estimate = pc.new_matrix_double(n_items, z.ncols());
+    let estimate = RObject::<RMatrix, f64>::new(n_items, z.ncols(), pc);
     let estimate_slice = estimate.slice_mut();
     let mut index = 0;
     for j in 0..z.ncols() {
@@ -422,9 +419,7 @@ fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usi
             index += 1;
         }
     }
-    let list = pc.new_list(3);
-    list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
-        .stop();
+    let list = RObject::<RList>::with_names(["estimate", "expectedLoss", "secondsTotal"], pc);
     list.set(0, estimate).stop();
     list.set(1, loss.to_r(pc)).stop();
     list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
@@ -480,7 +475,7 @@ fn neighborhood_sweeten(
 }
 
 #[roxido]
-fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
+fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
     let mut timer = EchoTimer::new();
     let samples = samples.list().stop();
     let n_samples = samples.len();
@@ -492,7 +487,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
         .build()
         .unwrap();
     let n_items = get(samples, 0).nrow();
-    let mut rng = Pcg64Mcg::from_seed(Pc::random_bytes::<16>());
+    let mut rng = Pcg64Mcg::from_seed(R::random_bytes::<16>());
     let mut interrupted = false;
     if timer.echo() {
         interrupted |= rprint!(
@@ -508,7 +503,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
                 .unwrap()
                 .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let mut views = Vec::with_capacity(n_samples);
     for i in 0..n_samples {
@@ -524,7 +519,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
             "{}",
             timer.stamp("Made data structures.\n").unwrap().as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> =
         rand::seq::index::sample(&mut rng, n_samples, n_samples)
@@ -541,7 +536,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
             "{}",
             timer.stamp("Selected all candidates.\n").unwrap().as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let selected_candidates_with_rngs: Vec<_> = pool.install(|| {
         selected_candidates_with_rngs
@@ -565,11 +560,11 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
                 .unwrap()
                 .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let mut candidates = Vec::with_capacity(selected_candidates_with_rngs.len());
     for (z, rng) in selected_candidates_with_rngs {
-        if interrupted || Pc::check_user_interrupt() {
+        if interrupted || R::check_user_interrupt() {
             stop!("Caught user interrupt before main loop, so aborting.");
         }
         let loss = expected_loss_from_samples(z.view(), &views, a, &pool);
@@ -591,11 +586,11 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
     });
     if !quiet {
         rprint!("\n");
-        Pc::flush_console();
+        R::flush_console();
     }
     if timer.echo() {
         rprint!("{}", timer.stamp("Sweetened bests.\n").unwrap().as_str());
-        Pc::flush_console();
+        R::flush_console();
     }
     bests.sort_unstable_by(|x, y| x.2.partial_cmp(&y.2).unwrap());
     let (best_z, _, best_loss, candidate_number, n_accepts, best_iteration, _) =
@@ -613,7 +608,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
             )
             .as_str()
         );
-        Pc::flush_console();
+        R::flush_console();
     }
     let columns_to_keep: Vec<usize> = best_z
         .axis_iter(Axis(1))
@@ -626,7 +621,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
             }
         })
         .collect();
-    let estimate = pc.new_matrix_double(n_items, columns_to_keep.len());
+    let estimate = RObject::<RMatrix, f64>::new(n_items, columns_to_keep.len(), pc);
     let estimate_slice = estimate.slice_mut();
     columns_to_keep
         .iter()
@@ -634,29 +629,22 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) -> &RObject {
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = pc.new_list(3);
-    list.set_names(["estimate", "expectedLoss", "secondsTotal"].to_r(pc))
-        .stop();
+    let list = RObject::<RList>::with_names(["estimate", "expectedLoss", "secondsTotal"], pc);
     list.set(0, estimate).stop();
     list.set(1, best_loss.to_r(pc)).stop();
     list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
     if timer.echo() {
         rprint!("{}", timer.stamp("Finalized results.\n").unwrap().as_str());
-        Pc::flush_console();
+        R::flush_console();
     }
     list
 }
 
 #[roxido]
-fn compute_expected_loss(
-    z: &RObject,
-    samples: &RObject<RList>,
-    a: f64,
-    n_cores: usize,
-) -> &RObject {
+fn compute_expected_loss(z: &RObject, samples: &RObject<RList>, a: f64, n_cores: usize) {
     let z = z.matrix().stop();
     let z = z
-        .double()
+        .as_f64()
         .stop_str("'Z' should be have double storage mode.");
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
@@ -671,11 +659,11 @@ fn compute_expected_loss(
 }
 
 #[roxido]
-fn compute_loss(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) -> &RObject {
+fn compute_loss(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) {
     if z1.nrow() == z2.nrow() {
         match make_weight_matrix(
-            make_view(z1.double().stop()),
-            make_view(z2.double().stop()),
+            make_view(z1.as_f64().stop()),
+            make_view(z2.as_f64().stop()),
             a,
         ) {
             Some(weight_matrix) => loss(&weight_matrix),
@@ -687,16 +675,12 @@ fn compute_loss(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) 
 }
 
 #[roxido]
-fn compute_loss_permutations(
-    z1: &RObject<RMatrix, f64>,
-    z2: &RObject<RMatrix, f64>,
-    a: f64,
-) -> &RObject {
+fn compute_loss_permutations(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) {
     use itertools::Itertools;
     let b = 2.0 - a;
     let loss = if z1.nrow() == z2.nrow() {
-        let v1 = make_view(z1.double().stop());
-        let v2 = make_view(z2.double().stop());
+        let v1 = make_view(z1.as_f64().stop());
+        let v2 = make_view(z2.as_f64().stop());
         let zero = Array1::zeros(v1.nrows());
         let zero_view = zero.view();
         let k = v1.ncols().max(v2.ncols());
@@ -739,11 +723,7 @@ fn compute_loss_permutations(
 }
 
 #[roxido]
-fn compute_loss_augmented(
-    z1: &RObject<RMatrix, f64>,
-    z2: &RObject<RMatrix, f64>,
-    a: f64,
-) -> &RObject {
+fn compute_loss_augmented(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) {
     let (loss, mut solution) = {
         match make_weight_matrix(make_view(z1), make_view(z2), a) {
             Some(weight_matrix) => {
@@ -759,26 +739,22 @@ fn compute_loss_augmented(
     for x in solution.1.iter_mut() {
         *x += 1;
     }
-    let list = pc.new_list(3);
-    list.set_names(["loss", "permutation1", "permutation2"].to_r(pc))
-        .stop();
+    let list = RObject::<RList>::with_names(["loss", "permutation1", "permutation2"], pc);
     list.set(0, loss.to_r(pc)).stop();
     list.set(
         1,
-        solution
-            .1
-            .iter()
-            .map(|x| i32::try_from(*x).unwrap())
-            .to_r(pc),
+        RObject::<RVector, i32>::from_iter(
+            solution.1.iter().map(|x| i32::try_from(*x).unwrap()),
+            pc,
+        ),
     )
     .stop();
     list.set(
         2,
-        solution
-            .0
-            .iter()
-            .map(|x| i32::try_from(*x).unwrap())
-            .to_r(pc),
+        RObject::<RVector, i32>::from_iter(
+            solution.0.iter().map(|x| i32::try_from(*x).unwrap()),
+            pc,
+        ),
     )
     .stop();
     list
