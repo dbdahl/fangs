@@ -743,18 +743,20 @@ fn compute_loss_augmented(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>
     list.set(0, loss.to_r(pc)).stop();
     list.set(
         1,
-        RObject::<RVector, i32>::from_iter(
-            solution.1.iter().map(|x| i32::try_from(*x).unwrap()),
-            pc,
-        ),
+        solution
+            .1
+            .iter()
+            .map(|x| i32::try_from(*x).unwrap())
+            .to_r(pc),
     )
     .stop();
     list.set(
         2,
-        RObject::<RVector, i32>::from_iter(
-            solution.0.iter().map(|x| i32::try_from(*x).unwrap()),
-            pc,
-        ),
+        solution
+            .0
+            .iter()
+            .map(|x| i32::try_from(*x).unwrap())
+            .to_r(pc),
     )
     .stop();
     list
