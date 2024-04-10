@@ -17,7 +17,7 @@ use timers::{EchoTimer, PeriodicTimer};
 #[allow(unused_imports)]
 use approx::assert_ulps_eq;
 
-fn get(samples: &RObject<RList>, index: usize) -> &RObject<RMatrix, f64> {
+fn get(samples: &RList, index: usize) -> &RMatrix<f64> {
     match samples.get(index) {
         Ok(element) => element
             .as_matrix()
@@ -30,7 +30,7 @@ fn get(samples: &RObject<RList>, index: usize) -> &RObject<RMatrix, f64> {
 
 #[roxido]
 fn fangs(
-    samples: &RObject,
+    samples: &RList,
     n_iterations: usize,
     max_seconds: f64,
     n_baselines: usize,
@@ -41,7 +41,6 @@ fn fangs(
     quiet: bool,
 ) {
     let mut timer = EchoTimer::new();
-    let samples = samples.as_list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
@@ -339,7 +338,7 @@ fn fangs(
             }
         })
         .collect();
-    let estimate = RObject::<RMatrix, f64>::new(n_items, columns_to_keep.len(), pc);
+    let estimate = RMatrix::<f64>::new(n_items, columns_to_keep.len(), pc);
     let estimate_slice = estimate.slice_mut();
     columns_to_keep
         .iter()
@@ -347,7 +346,7 @@ fn fangs(
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let names = [
+    let names = &[
         "estimate",
         "expectedLoss",
         "iteration",
@@ -357,7 +356,7 @@ fn fangs(
         "secondsTotal",
         "whichSweet",
     ];
-    let list = RObject::<RList>::with_names(names, pc);
+    let list = RList::with_names(names, pc);
     list.set(0, estimate).stop();
     list.set(1, best_loss.to_r(pc)).stop();
     list.set(2, (best_iteration as i32).to_r(pc)).stop();
@@ -375,9 +374,8 @@ fn fangs(
 }
 
 #[roxido]
-fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usize) {
+fn fangs_double_greedy(samples: &RList, max_seconds: f64, a: f64, n_cores: usize) {
     let timer = EchoTimer::new();
-    let samples = samples.as_list().stop_str("'samples' must be a list.");
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
@@ -410,7 +408,7 @@ fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usi
         max_seconds,
         &timer,
     );
-    let estimate = RObject::<RMatrix, f64>::new(n_items, z.ncols(), pc);
+    let estimate = RMatrix::<f64>::new(n_items, z.ncols(), pc);
     let estimate_slice = estimate.slice_mut();
     let mut index = 0;
     for j in 0..z.ncols() {
@@ -419,7 +417,7 @@ fn fangs_double_greedy(samples: &RObject, max_seconds: f64, a: f64, n_cores: usi
             index += 1;
         }
     }
-    let list = RObject::<RList>::with_names(["estimate", "expectedLoss", "secondsTotal"], pc);
+    let list = RList::with_names(&["estimate", "expectedLoss", "secondsTotal"], pc);
     list.set(0, estimate).stop();
     list.set(1, loss.to_r(pc)).stop();
     list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
@@ -475,9 +473,8 @@ fn neighborhood_sweeten(
 }
 
 #[roxido]
-fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
+fn draws(samples: &RList, a: f64, n_cores: usize, quiet: bool) {
     let mut timer = EchoTimer::new();
-    let samples = samples.as_list().stop();
     let n_samples = samples.len();
     if n_samples < 1 {
         stop!("Number of samples must be at least one.");
@@ -621,7 +618,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
             }
         })
         .collect();
-    let estimate = RObject::<RMatrix, f64>::new(n_items, columns_to_keep.len(), pc);
+    let estimate = RMatrix::<f64>::new(n_items, columns_to_keep.len(), pc);
     let estimate_slice = estimate.slice_mut();
     columns_to_keep
         .iter()
@@ -629,7 +626,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
         .for_each(|(j_new, j_old)| {
             matrix_copy_into_column(estimate_slice, n_items, j_new, best_z.column(*j_old).iter())
         });
-    let list = RObject::<RList>::with_names(["estimate", "expectedLoss", "secondsTotal"], pc);
+    let list = RList::with_names(&["estimate", "expectedLoss", "secondsTotal"], pc);
     list.set(0, estimate).stop();
     list.set(1, best_loss.to_r(pc)).stop();
     list.set(2, timer.total_as_secs_f64().to_r(pc)).stop();
@@ -641,11 +638,7 @@ fn draws(samples: &RObject, a: f64, n_cores: usize, quiet: bool) {
 }
 
 #[roxido]
-fn compute_expected_loss(z: &RObject, samples: &RObject<RList>, a: f64, n_cores: usize) {
-    let z = z.as_matrix().stop();
-    let z = z
-        .as_f64()
-        .stop_str("'Z' should be have double storage mode.");
+fn compute_expected_loss(z: &RMatrix<f64>, samples: &RList, a: f64, n_cores: usize) {
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(n_cores)
         .build()
@@ -659,7 +652,7 @@ fn compute_expected_loss(z: &RObject, samples: &RObject<RList>, a: f64, n_cores:
 }
 
 #[roxido]
-fn compute_loss(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) {
+fn compute_loss(z1: &RMatrix<f64>, z2: &RMatrix<f64>, a: f64) {
     if z1.nrow() == z2.nrow() {
         match make_weight_matrix(
             make_view(z1.as_f64().stop()),
@@ -675,12 +668,12 @@ fn compute_loss(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) 
 }
 
 #[roxido]
-fn compute_loss_permutations(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) {
+fn compute_loss_permutations(z1: &RMatrix<f64>, z2: &RMatrix<f64>, a: f64) {
     use itertools::Itertools;
     let b = 2.0 - a;
     let loss = if z1.nrow() == z2.nrow() {
-        let v1 = make_view(z1.as_f64().stop());
-        let v2 = make_view(z2.as_f64().stop());
+        let v1 = make_view(z1);
+        let v2 = make_view(z2);
         let zero = Array1::zeros(v1.nrows());
         let zero_view = zero.view();
         let k = v1.ncols().max(v2.ncols());
@@ -723,7 +716,7 @@ fn compute_loss_permutations(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f
 }
 
 #[roxido]
-fn compute_loss_augmented(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>, a: f64) {
+fn compute_loss_augmented(z1: &RMatrix<f64>, z2: &RMatrix<f64>, a: f64) {
     let (loss, mut solution) = {
         match make_weight_matrix(make_view(z1), make_view(z2), a) {
             Some(weight_matrix) => {
@@ -739,7 +732,7 @@ fn compute_loss_augmented(z1: &RObject<RMatrix, f64>, z2: &RObject<RMatrix, f64>
     for x in solution.1.iter_mut() {
         *x += 1;
     }
-    let list = RObject::<RList>::with_names(["loss", "permutation1", "permutation2"], pc);
+    let list = RList::with_names(&["loss", "permutation1", "permutation2"], pc);
     list.set(0, loss.to_r(pc)).stop();
     list.set(
         1,
@@ -772,7 +765,7 @@ fn matrix_copy_into_column<'a>(
     subslice.iter_mut().zip(iter).for_each(|(x, y)| *x = *y);
 }
 
-fn make_view(z: &RObject<RMatrix, f64>) -> ArrayView2<'static, f64> {
+fn make_view(z: &RMatrix<f64>) -> ArrayView2<'static, f64> {
     unsafe { ArrayView::from_shape_ptr((z.nrow(), z.ncol()).f(), z.slice().as_ptr()) }
 }
 
