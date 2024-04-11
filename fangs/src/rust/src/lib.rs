@@ -1,6 +1,5 @@
-mod registration {
-    include!(concat!(env!("OUT_DIR"), "/registration.rs"));
-}
+roxido_registration!();
+use roxido::*;
 
 mod timers;
 
@@ -10,7 +9,6 @@ use rand::{Rng, RngCore, SeedableRng};
 use rand_pcg::Pcg64Mcg;
 use rayon::prelude::*;
 use rayon::ThreadPool;
-use roxido::*;
 use std::path::Path;
 use timers::{EchoTimer, PeriodicTimer};
 
